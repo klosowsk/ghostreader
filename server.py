@@ -49,9 +49,9 @@ async def get_browser():
 
             ctx_manager = AsyncCamoufox(
                 headless=headless_mode,
-                block_images=True,
+                block_images=False,
                 block_webrtc=True,
-                block_webgl=True,
+                block_webgl=False,
                 os="windows",
                 locale="en-US",
             )
@@ -82,6 +82,7 @@ async def handle_scrape(request: web.Request) -> web.Response:
     timeout = body.get("timeout", 15000)
     headers = body.get("headers", {})
     wait_for_selector = body.get("wait_for_selector", None)
+    wait_until = body.get("wait_until", "domcontentloaded")
 
     logger.info(f"Scraping: {url}")
 
@@ -95,11 +96,7 @@ async def handle_scrape(request: web.Request) -> web.Response:
                 await page.set_extra_http_headers(headers)
 
             # Navigate to the URL
-            response = await page.goto(
-                url,
-                wait_until="networkidle",
-                timeout=timeout,
-            )
+            response = await page.goto(url, wait_until=wait_until, timeout=timeout)
 
             # Wait for a specific selector if provided
             if wait_for_selector:
