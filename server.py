@@ -52,7 +52,8 @@ async def get_browser():
                 block_images=True,
                 block_webrtc=True,
                 block_webgl=True,
-                os=["windows", "macos", "linux"],
+                os="windows",
+                locale="en-US",
             )
             _browser = await ctx_manager.__aenter__()
             # Store the context manager so we can clean up later
@@ -80,6 +81,7 @@ async def handle_scrape(request: web.Request) -> web.Response:
     wait_after_load = body.get("wait_after_load", 2)
     timeout = body.get("timeout", 15000)
     headers = body.get("headers", {})
+    wait_for_selector = body.get("wait_for_selector", None)
 
     logger.info(f"Scraping: {url}")
 
@@ -95,9 +97,19 @@ async def handle_scrape(request: web.Request) -> web.Response:
             # Navigate to the URL
             response = await page.goto(
                 url,
-                wait_until="domcontentloaded",
+                wait_until="networkidle",
                 timeout=timeout,
             )
+
+            # Wait for a specific selector if provided
+            if wait_for_selector:
+                try:
+                    await page.wait_for_selector(
+                        wait_for_selector,
+                        timeout=min(timeout, 10000),
+                    )
+                except Exception:
+                    logger.warning(f"Selector {wait_for_selector} not found, continuing...")
 
             # Wait for additional time after load
             if wait_after_load > 0:
