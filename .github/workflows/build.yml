@@ -8,6 +8,7 @@ on:
       - main
     paths:
       - 'server.py'
+      - 'profiles/**'
       - 'Dockerfile'
       - 'requirements.txt'
       - '.github/workflows/build.yml'
