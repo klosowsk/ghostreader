@@ -52,7 +52,7 @@ Any client (SearXNG, agent, script)
 │  Extraction profiles (profiles/)    │
 │  ├─ google_web.py                   │
 │  ├─ google_news.py                  │
-│  └─ base.py (generic XPath)        │
+│  └─ base.py (generic XPath)         │
 └─────────────────────────────────────┘
         │
         ▼
