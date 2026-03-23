@@ -5,6 +5,7 @@
 import { Hono } from 'hono';
 import { process, getAvailableEngines, type OutputFormat, type Engine } from './pipeline/index.js';
 import { scrape, scraperHealth } from './clients/scraper.js';
+import { getProfile, listProfiles } from './profiles/index.js';
 import { config } from './config.js';
 
 export const app = new Hono();
@@ -149,6 +150,67 @@ app.get('/render/*', async (c) => {
 });
 
 // ---------------------------------------------------------------------------
+// POST /extract — render URL via scraper + extract structured results
+// ---------------------------------------------------------------------------
+
+app.post('/extract', async (c) => {
+  const body = await c.req.json<{
+    url: string;
+    profile: string;
+    timeout?: number;
+    wait_after_load?: number;
+    options?: Record<string, string>;
+  }>();
+
+  if (!body.url) {
+    return c.json({ error: "Missing 'url' field" }, 400);
+  }
+  if (!body.profile) {
+    return c.json({ error: "Missing 'profile' field" }, 400);
+  }
+
+  const profile = getProfile(body.profile);
+  if (!profile) {
+    return c.json({ error: `Unknown profile: ${body.profile}. Available: ${listProfiles().join(', ')}` }, 400);
+  }
+
+  // Check for CAPTCHA in the target URL before rendering
+  const isCaptcha = (url: string) =>
+    profile.captchaPatterns.some((p) => url.includes(p));
+
+  try {
+    const scraped = await scrape({
+      url: body.url,
+      waitAfterLoad: body.wait_after_load ?? profile.waitAfterLoad,
+      timeout: body.timeout ?? 30000,
+      waitForSelector: profile.waitForSelector,
+    });
+
+    // Check if we got a CAPTCHA
+    if (isCaptcha(scraped.url)) {
+      return c.json({
+        results: [],
+        suggestions: [],
+        captcha: true,
+        error: 'CAPTCHA detected',
+      });
+    }
+
+    const output = profile.extract(scraped.html, scraped.url, body.options);
+
+    return c.json({
+      results: output.results,
+      suggestions: output.suggestions,
+      captcha: false,
+      error: null,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return c.json({ results: [], suggestions: [], captcha: false, error: msg }, 500);
+  }
+});
+
+// ---------------------------------------------------------------------------
 // Utility endpoints
 // ---------------------------------------------------------------------------
 
@@ -172,4 +234,8 @@ app.get('/config', (c) => {
 app.get('/engines', async (c) => {
   const engines = await getAvailableEngines();
   return c.json({ engines });
+});
+
+app.get('/profiles', (c) => {
+  return c.json({ profiles: listProfiles() });
 });

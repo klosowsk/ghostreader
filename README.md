@@ -16,10 +16,18 @@ curl http://localhost:8080/health
 # Check active configuration
 curl http://localhost:8080/config
 
+# Render any URL to markdown (Jina-style)
+curl http://localhost:8080/render/https://example.com
+
 # Scrape a page (raw HTML)
 curl -X POST http://localhost:8080/scrape \
   -H 'Content-Type: application/json' \
-  -d '{"url": "https://example.com", "wait_after_load": 2}'
+  -d '{"url": "https://example.com", "response_format": "html"}'
+
+# Scrape a page (markdown)
+curl -X POST http://localhost:8080/scrape \
+  -H 'Content-Type: application/json' \
+  -d '{"url": "https://example.com", "response_format": "markdown"}'
 
 # Extract structured results using a profile
 curl -X POST http://localhost:8080/extract \
@@ -34,10 +42,12 @@ python test_probe.py
 ## Architecture
 
 ```
-Any client (SearXNG, agent, script)
+Any client (SearXNG, agent, script, browser)
         │
         ▼
-   POST /extract  or  POST /scrape
+   POST /scrape        → JSON / HTML / Markdown
+   POST /extract       → Structured results (profiles)
+   GET  /render/{url}  → Markdown (Jina-style)
         │
         ▼
 ┌─────────────────────────────────────┐
@@ -56,7 +66,7 @@ Any client (SearXNG, agent, script)
 └─────────────────────────────────────┘
         │
         ▼
-  Structured JSON or raw HTML
+  JSON / HTML / Markdown / Structured results
 ```
 
 ## API
@@ -71,28 +81,74 @@ Returns the active configuration (all env vars, resolved). Useful for debugging.
 
 ### `POST /scrape`
 
-Renders a URL and returns **raw HTML**. Use this for general scraping, debugging, or feeding HTML to your own parser.
+Renders a URL and returns it in the requested format. Use this for general scraping, debugging, or feeding content to your own parser.
 
 ```json
 // Request
 {
   "url": "https://example.com",
+  "response_format": "json",
   "wait_after_load": 2,
   "timeout": 30000,
   "wait_for_selector": "a h3",
   "wait_until": "domcontentloaded",
   "headers": {"Accept-Language": "en-US"}
 }
-
-// Response
-{
-  "html": "<!DOCTYPE html>...",
-  "status": 200,
-  "url": "https://example.com"
-}
 ```
 
 All fields except `url` are optional.
+
+**`response_format`** controls the output:
+
+| Format | Content-Type | Response |
+|--------|-------------|----------|
+| `json` (default) | `application/json` | `{"html": "...", "status": 200, "url": "..."}` |
+| `html` | `text/html` | Raw rendered HTML |
+| `markdown` | `text/plain` | Converted markdown (scripts/styles/nav stripped) |
+
+```bash
+# Get raw HTML
+curl -X POST http://localhost:8080/scrape \
+  -H 'Content-Type: application/json' \
+  -d '{"url": "https://example.com", "response_format": "html"}'
+
+# Get markdown
+curl -X POST http://localhost:8080/scrape \
+  -H 'Content-Type: application/json' \
+  -d '{"url": "https://example.com", "response_format": "markdown"}'
+```
+
+### `GET /render/{url}`
+
+Jina-style URL rendering endpoint. Pass the target URL directly in the path — returns markdown by default.
+
+```bash
+# Markdown (default)
+curl http://localhost:8080/render/https://example.com
+
+# Raw HTML
+curl "http://localhost:8080/render/https://example.com?format=html"
+
+# JSON
+curl "http://localhost:8080/render/https://example.com?format=json"
+
+# With custom wait time
+curl "http://localhost:8080/render/https://example.com?format=markdown&wait=5"
+```
+
+Query params:
+
+| Param | Default | Description |
+|-------|---------|-------------|
+| `format` | `markdown` | Response format: `markdown`, `html`, or `json` |
+| `wait` | `2` | Seconds to wait after page load for JS to execute |
+
+Any other query params are passed through to the target URL. For example:
+
+```bash
+# The ?q=test goes to Google, ?format=markdown is consumed by camoufox-scraper
+curl "http://localhost:8080/render/https://www.google.com/search?q=test&format=markdown"
+```
 
 ### `POST /extract`
 
