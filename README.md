@@ -1,6 +1,8 @@
 # GhostReader
 
-Self-hosted anti-detect browser rendering proxy with AI-powered content processing. Render any URL to clean markdown through a stealth browser, extract structured data with extraction profiles, and optionally restructure content with [Ollama](https://ollama.com) AI.
+Self-hosted anti-detect browser rendering proxy with AI-powered content processing. Render any URL to clean markdown through a stealth [Camoufox](https://github.com/daijro/camoufox) browser, extract structured data with extraction profiles, and optionally restructure content with [Ollama](https://ollama.com) AI.
+
+![GhostReader UI](docs/screenshot.png)
 
 ## Quick Start
 
@@ -13,7 +15,7 @@ cd ghostreader && docker compose up -d --build
 npx ghostreader render https://example.com
 
 # API
-curl https://your-instance/render/https://example.com
+curl http://localhost:3000/render/https://example.com
 ```
 
 ## Architecture
@@ -23,13 +25,13 @@ curl https://your-instance/render/https://example.com
                    │         GhostReader                │
   Web UI ──────┐   │                                    │
   CLI ─────────┤   │  Processor (TypeScript/Hono)       │
-  MCP agents ──┤──▶│  ├─ MD extraction                  │
+  MCP agents ──┤──▶│  ├─ Defuddle content extraction    │
   SearXNG ─────┤   │  ├─ Ollama AI formatting (opt.)    │
   curl/API ────┘   │  └─ Extraction profiles            │
                    │         │                          │
                    │         ▼                          │
-                   │  Scraper                           │
-                   │  ├─ Anti-detect browser            │
+                   │  Scraper (Python/Camoufox)         │
+                   │  ├─ Anti-detect Firefox browser    │
                    │  ├─ Persistent identity/cookies    │
                    │  └─ GeoIP fingerprint matching     │
                    └────────────────────────────────────┘
@@ -54,7 +56,7 @@ curl https://your-instance/render/https://example.com
 
 ## Documentation
 
-Full documentation is available at the [/docs](https://ghostreader.home.rklosowski.com/docs) page on any running instance, covering:
+Full documentation is available at the `/docs` page on any running instance, covering:
 
 - API reference
 - CLI commands
