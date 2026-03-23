@@ -1,5 +1,5 @@
 /**
- * HTTP client for the camoufox-scraper service.
+ * HTTP client for the GhostReader scraper service.
  *
  * The scraper handles anti-detect browser rendering.
  * This client calls its /scrape endpoint and returns raw HTML.
@@ -23,7 +23,7 @@ export interface ScrapeResult {
 }
 
 /**
- * Render a URL via the camoufox-scraper service. Returns raw HTML.
+ * Render a URL via the scraper service. Returns raw HTML.
  */
 export async function scrape(options: ScrapeOptions): Promise<ScrapeResult> {
   const res = await fetch(`${config.scraperUrl}/scrape`, {

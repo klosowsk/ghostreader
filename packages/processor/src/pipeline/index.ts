@@ -44,9 +44,8 @@ export async function process(options: ProcessOptions): Promise<ProcessResult> {
   const { html, url, format = 'markdown', article = false, images = false } = options;
   let engine = options.engine || 'standard';
 
-  // Backward compat aliases
-  if (engine === 'turndown' || engine === 'clean') engine = 'standard';
-  if (engine === 'readerlm' || engine === 'qwen-small' || engine === 'auto') engine = 'ai';
+  // Normalize unknown engine names to standard
+  if (engine !== 'standard' && engine !== 'ai') engine = 'standard';
 
   // For HTML format, extract cleaned HTML (no markdown conversion)
   if (format === 'html') {

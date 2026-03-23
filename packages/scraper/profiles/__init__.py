@@ -1,4 +1,4 @@
-"""Extraction profiles for the Camoufox scraper.
+"""Extraction profiles for the GhostReader scraper.
 
 Each profile is a Python module that knows how to extract structured search
 results from a specific vendor's rendered HTML.  Profiles are loaded

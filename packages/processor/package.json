@@ -16,9 +16,7 @@
     "defuddle": "^0.14.0",
     "hono": "^4.7.0",
     "jsdom": "^26.1.0",
-    "linkedom": "^0.18.12",
     "ollama": "^0.5.0",
-    "turndown": "^7.2.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {

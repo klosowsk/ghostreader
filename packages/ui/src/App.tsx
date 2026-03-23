@@ -246,7 +246,7 @@ function HomePage() {
             className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
           >
             <Terminal className="size-3" />
-            CLI
+            CLI (npm)
           </a>
           <a
             href="https://www.npmjs.com/package/@ghostreader/mcp"
@@ -255,7 +255,7 @@ function HomePage() {
             className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
           >
             <Terminal className="size-3" />
-            MCP
+            MCP (npm)
           </a>
           <a
             href="https://github.com/klosowsk/ghostreader"

@@ -1,20 +1,16 @@
 """
-Camoufox Scraper HTTP Service
+GhostReader Scraper Service
 
-A lightweight HTTP service that renders web pages using Camoufox (anti-detect browser)
-and returns either raw HTML or structured extracted results.
+Anti-detect browser rendering service using Camoufox (stealth Firefox fork).
+Returns raw HTML for processing by the GhostReader processor.
 
-All important Camoufox parameters are configurable via environment variables,
-making it easy to customize behavior without rebuilding the image.
+All Camoufox parameters are configurable via environment variables.
 
 Endpoints:
 
 POST /scrape
-  Body: {"url": "https://...", "wait_after_load": 2, "timeout": 15000, "response_format": "json"}
-  response_format: "json" (default) | "html" | "markdown"
-  Returns (json):     {"html": "...", "status": 200, "url": "..."}
-  Returns (html):     raw HTML (Content-Type: text/html)
-  Returns (markdown): converted markdown (Content-Type: text/plain)
+  Body: {"url": "https://...", "wait_after_load": 2, "timeout": 15000}
+  Returns: {"html": "...", "status": 200, "url": "..."}
 
 POST /extract
   Body: {"url": "https://...", "profile": "google_web", "timeout": 30000}
@@ -63,14 +59,13 @@ import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
-import html2text
 from aiohttp import web
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
 )
-logger = logging.getLogger("camoufox-scraper")
+logger = logging.getLogger("ghostreader-scraper")
 
 
 # ---------------------------------------------------------------------------
@@ -400,51 +395,6 @@ def _log_config(config):
 
 
 # ---------------------------------------------------------------------------
-# HTML to Markdown conversion
-# ---------------------------------------------------------------------------
-
-# Compile once — tags to strip before markdown conversion
-_STRIP_TAGS_RE = re.compile(
-    r'<(script|style|nav|footer|header|noscript)\b[^>]*>[\s\S]*?</\1>',
-    re.IGNORECASE,
-)
-
-
-def _make_html2text():
-    """Create a configured html2text converter."""
-    h = html2text.HTML2Text()
-    h.body_width = 0          # Don't wrap lines
-    h.ignore_images = False
-    h.ignore_links = False
-    h.ignore_emphasis = False
-    h.skip_internal_links = True
-    h.inline_links = True
-    h.protect_links = True
-    h.wrap_links = False
-    h.unicode_snob = True     # Use unicode instead of HTML entities
-    return h
-
-
-_converter = _make_html2text()
-
-
-def html_to_markdown(page_html):
-    """Convert rendered HTML to clean markdown.
-
-    Strips <script>, <style>, <nav>, <footer>, <header>, <noscript> tags,
-    extracts <body> content, then converts to markdown using html2text.
-    """
-    # Extract body content only
-    body_match = re.search(r'<body[^>]*>([\s\S]*?)</body>', page_html, re.IGNORECASE)
-    body_html = body_match.group(1) if body_match else page_html
-
-    # Strip noisy tags
-    body_html = _STRIP_TAGS_RE.sub('', body_html)
-
-    return _converter.handle(body_html).strip()
-
-
-# ---------------------------------------------------------------------------
 # Page rendering
 # ---------------------------------------------------------------------------
 
@@ -489,38 +439,10 @@ async def render_page(url, wait_after_load=2.0, timeout=15000, headers=None,
 # HTTP handlers
 # ---------------------------------------------------------------------------
 
-def _format_response(page_html, status_code, final_url, response_format):
-    """Format the rendered page according to the requested format."""
-    if response_format == "html":
-        return web.Response(
-            text=page_html,
-            content_type="text/html",
-            charset="utf-8",
-        )
-
-    if response_format == "markdown":
-        markdown = html_to_markdown(page_html)
-        return web.Response(
-            text=markdown,
-            content_type="text/plain",
-            charset="utf-8",
-        )
-
-    # Default: JSON
-    return web.json_response({
-        "html": page_html,
-        "status": status_code,
-        "url": final_url,
-    })
-
-
 async def handle_scrape(request: web.Request) -> web.Response:
-    """Handle a scrape request. Renders a URL and returns the result.
+    """Handle a scrape request. Renders a URL and returns JSON.
 
-    Supports ``response_format`` in the JSON body:
-      - ``"json"`` (default): ``{"html": "...", "status": 200, "url": "..."}``
-      - ``"html"``: raw HTML with ``Content-Type: text/html``
-      - ``"markdown"``: converted markdown with ``Content-Type: text/plain``
+    Returns ``{"html": "...", "status": 200, "url": "..."}``.
     """
     try:
         body = await request.json()
@@ -531,14 +453,7 @@ async def handle_scrape(request: web.Request) -> web.Response:
     if not url:
         return web.json_response({"error": "Missing 'url' field"}, status=400)
 
-    response_format = body.get("response_format", "json")
-    if response_format not in ("json", "html", "markdown"):
-        return web.json_response(
-            {"error": "Invalid response_format. Must be 'json', 'html', or 'markdown'"},
-            status=400,
-        )
-
-    logger.info("Scraping: %s (format=%s)", url, response_format)
+    logger.info("Scraping: %s", url)
 
     try:
         page_html, status_code, final_url = await render_page(
@@ -552,7 +467,11 @@ async def handle_scrape(request: web.Request) -> web.Response:
 
         logger.info("Scraped %s -> %d (%d bytes)", url, status_code, len(page_html))
 
-        return _format_response(page_html, status_code, final_url, response_format)
+        return web.json_response({
+            "html": page_html,
+            "status": status_code,
+            "url": final_url,
+        })
 
     except Exception as e:
         logger.error("Error scraping %s: %s", url, e)
@@ -560,59 +479,43 @@ async def handle_scrape(request: web.Request) -> web.Response:
 
 
 async def handle_render(request: web.Request) -> web.Response:
-    """Jina-style GET endpoint. Renders a URL and returns markdown by default.
+    """GET endpoint. Renders a URL and returns raw HTML.
 
     The target URL is everything after ``/render/`` in the path.
     Query params:
-      - ``format``: ``markdown`` (default), ``html``, or ``json``
       - ``wait``: seconds to wait after page load (default: 2)
 
     Examples::
 
         GET /render/https://example.com
-        GET /render/https://example.com?format=html&wait=3
+        GET /render/https://example.com?wait=3
     """
-    # Extract the target URL from the path (everything after /render/)
     target_url = request.match_info.get("url", "")
     if not target_url:
         return web.json_response({"error": "Missing URL after /render/"}, status=400)
 
-    # Reconstruct query string from the raw URL, separating our params from the target's
     raw_query = request.query_string
-    response_format = "markdown"
     wait_after_load = 2.0
 
-    # Parse our params out of the query string
     if raw_query:
         from urllib.parse import parse_qs, urlencode
 
         params = parse_qs(raw_query, keep_blank_values=True)
 
-        # Extract our control params
-        if "format" in params:
-            response_format = params.pop("format")[0]
         if "wait" in params:
             try:
                 wait_after_load = float(params.pop("wait")[0])
             except (ValueError, IndexError):
                 pass
 
-        # Remaining params belong to the target URL
         remaining = urlencode(
             [(k, v) for k, vals in params.items() for v in vals]
         )
         if remaining:
-            # Append remaining query params to the target URL
             sep = "&" if "?" in target_url else "?"
             target_url = f"{target_url}{sep}{remaining}"
 
-    if response_format not in ("json", "html", "markdown"):
-        return web.json_response(
-            {"error": "Invalid format. Must be 'json', 'html', or 'markdown'"},
-            status=400,
-        )
-
-    logger.info("Render: %s (format=%s, wait=%.1f)", target_url, response_format, wait_after_load)
+    logger.info("Render: %s (wait=%.1f)", target_url, wait_after_load)
 
     try:
         page_html, status_code, final_url = await render_page(
@@ -622,7 +525,11 @@ async def handle_render(request: web.Request) -> web.Response:
 
         logger.info("Rendered %s -> %d (%d bytes)", target_url, status_code, len(page_html))
 
-        return _format_response(page_html, status_code, final_url, response_format)
+        return web.Response(
+            text=page_html,
+            content_type="text/html",
+            charset="utf-8",
+        )
 
     except Exception as e:
         logger.error("Error rendering %s: %s", target_url, e)
@@ -791,5 +698,5 @@ def create_app() -> web.Application:
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8080"))
     app = create_app()
-    logger.info("Starting Camoufox Scraper on port %d", port)
+    logger.info("Starting GhostReader Scraper on port %d", port)
     web.run_app(app, host="0.0.0.0", port=port)

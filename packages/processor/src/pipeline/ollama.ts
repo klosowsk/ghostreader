@@ -4,8 +4,7 @@
  * Uses a single configurable AI model (OLLAMA_AI_MODEL env var).
  * Default: milkey/reader-lm-v2:latest (purpose-trained for HTML→markdown).
  *
- * Ollama is entirely optional — if unreachable, AI engine is unavailable
- * and 'auto' falls back to 'standard'.
+ * Ollama is entirely optional — if unreachable, the AI engine returns an error.
  */
 
 import { Ollama } from 'ollama';
@@ -50,7 +49,7 @@ async function checkAvailability(): Promise<boolean> {
 /**
  * Check if Ollama is reachable.
  */
-export async function isOllamaAvailable(): Promise<boolean> {
+async function isOllamaAvailable(): Promise<boolean> {
   return checkAvailability();
 }
 

@@ -5,7 +5,7 @@
  * Render any URL to markdown, extract structured data, or list available engines.
  *
  * Usage:
- *   ghostreader render <url> [--engine turndown] [--format markdown] [--wait 2]
+ *   ghostreader render <url> [--engine standard] [--format markdown] [--wait 2]
  *   ghostreader extract <url> --profile google_web [--timeout 30000] [--json]
  *   ghostreader engines
  *   ghostreader health

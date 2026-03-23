@@ -18,6 +18,6 @@ services:
     environment:
       - SCRAPER_URL=http://scraper:8080
       - OLLAMA_URL=http://host.docker.internal:11434
-      - OLLAMA_DEFAULT_MODEL=reader-lm:1.5b
+      - OLLAMA_AI_MODEL=milkey/reader-lm-v2:latest
     depends_on:
       - scraper

@@ -16,7 +16,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 
-const BASE_URL = (process.env.GHOSTREADER_URL || process.env.SCRAPER_URL || 'http://localhost:3000').replace(/\/$/, '');
+const BASE_URL = (process.env.GHOSTREADER_URL || 'http://localhost:3000').replace(/\/$/, '');
 
 function truncate(text: string, maxLen = 50000): string {
   if (text.length <= maxLen) return text;
