@@ -52,7 +52,7 @@ function App() {
   useEffect(() => {
     getEngines()
       .then((res) => {
-        if (res.engines?.length) setEngines(res.engines);
+        if (res.engines?.length) setEngines(res.engines.map((e) => e.name));
       })
       .catch(() => {
         /* use defaults */

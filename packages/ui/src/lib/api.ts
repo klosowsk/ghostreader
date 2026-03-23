@@ -17,8 +17,15 @@ export interface ExtractResponse {
   error: string | null;
 }
 
+export interface EngineInfo {
+  name: string;
+  type: string;
+  model?: string;
+  available: boolean;
+}
+
 export interface EnginesResponse {
-  engines: string[];
+  engines: EngineInfo[];
 }
 
 export interface ProfilesResponse {
@@ -62,13 +69,15 @@ export async function renderUrl(
   url: string,
   options: RenderOptions = {}
 ): Promise<string> {
-  const params = new URLSearchParams({ url });
+  const params = new URLSearchParams();
   if (options.engine) params.set("engine", options.engine);
   if (options.format) params.set("format", options.format);
   if (options.wait_after_load != null)
-    params.set("wait_after_load", String(options.wait_after_load));
+    params.set("wait", String(options.wait_after_load));
 
-  const res = await fetch(`/render/?${params.toString()}`);
+  const query = params.toString();
+  const renderUrl = `/render/${url}${query ? `?${query}` : ""}`;
+  const res = await fetch(renderUrl);
   return handleTextResponse(res);
 }
 
@@ -77,10 +86,15 @@ export async function extractUrl(
   profile: string,
   timeout?: number
 ): Promise<ExtractResponse> {
-  const params = new URLSearchParams({ url, profile });
-  if (timeout != null) params.set("timeout", String(timeout * 1000));
-
-  const res = await fetch(`/extract?${params.toString()}`);
+  const res = await fetch("/extract", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      url,
+      profile,
+      timeout: timeout != null ? timeout * 1000 : 30000,
+    }),
+  });
   return handleResponse<ExtractResponse>(res);
 }
 
