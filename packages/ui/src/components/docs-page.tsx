@@ -301,8 +301,8 @@ export function DocsPage() {
       </header>
 
       {/* Content */}
-      <main className="flex-1 px-4 py-8">
-        <div className="w-full max-w-2xl mx-auto overflow-x-auto prose-ghost">
+      <main className="flex-1 px-4 py-8 overflow-x-hidden">
+        <div className="max-w-2xl mx-auto prose-ghost [&_pre]:overflow-x-auto [&_table]:overflow-x-auto [&_table]:block">
           <Markdown remarkPlugins={[remarkGfm]}>{DOCS}</Markdown>
         </div>
       </main>
