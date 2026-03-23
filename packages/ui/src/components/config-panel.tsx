@@ -26,6 +26,7 @@ export interface Config {
   format: Format;
   profile: string;
   article: boolean;
+  images: boolean;
 }
 
 interface ConfigPanelProps {
@@ -107,6 +108,21 @@ export function ConfigPanel({
             }`}
           >
             Article
+          </button>
+        )}
+
+        {/* Images toggle - only in render mode */}
+        {config.mode === "render" && (
+          <button
+            type="button"
+            onClick={() => update({ images: !config.images })}
+            className={`h-8 px-3 rounded-md text-xs font-medium border transition-colors ${
+              config.images
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-transparent text-muted-foreground border-border hover:text-foreground"
+            }`}
+          >
+            Images
           </button>
         )}
 

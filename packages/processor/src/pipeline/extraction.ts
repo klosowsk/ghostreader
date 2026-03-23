@@ -30,14 +30,25 @@ export interface ExtractionResult {
 /**
  * Strip heavy tags via regex BEFORE feeding to DOM parser.
  * Avoids parsing megabytes of inline scripts and SVG paths.
+ *
+ * When images=false (default), also strips <img>, <picture>, and <figure>
+ * containing only images. This reduces noise for AI models and text consumers.
  */
-function preClean(html: string): string {
-  return html
+function preClean(html: string, options?: { images?: boolean }): string {
+  let cleaned = html
     .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
     .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '')
     .replace(/<svg\b[^>]*>[\s\S]*?<\/svg>/gi, '')
     .replace(/<noscript\b[^>]*>[\s\S]*?<\/noscript>/gi, '')
     .replace(/<iframe\b[^>]*>[\s\S]*?<\/iframe>/gi, '');
+
+  if (!(options?.images ?? false)) {
+    cleaned = cleaned
+      .replace(/<picture\b[^>]*>[\s\S]*?<\/picture>/gi, '')
+      .replace(/<img\b[^>]*\/?>/gi, '');
+  }
+
+  return cleaned;
 }
 
 /**
@@ -47,13 +58,14 @@ function preClean(html: string): string {
  * @param url - URL of the page (used for relative URL resolution)
  * @param options.article - Enable aggressive article extraction (removeLowScoring)
  * @param options.markdown - Output markdown (true) or cleaned HTML (false)
+ * @param options.images - Keep images in output (default: false — strips <img>/<picture>)
  */
 export async function extract(
   html: string,
   url?: string,
-  options: { article?: boolean; markdown?: boolean } = {},
+  options: { article?: boolean; markdown?: boolean; images?: boolean } = {},
 ): Promise<ExtractionResult> {
-  const cleaned = preClean(html);
+  const cleaned = preClean(html, { images: options.images });
   const dom = new JSDOM(cleaned, { url });
 
   const result = await Defuddle(dom.window.document, url || '', {

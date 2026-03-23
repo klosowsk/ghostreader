@@ -3,6 +3,7 @@ export interface RenderOptions {
   format?: "markdown" | "html" | "json";
   wait_after_load?: number;
   article?: boolean;
+  images?: boolean;
 }
 
 export interface ExtractResult {
@@ -76,6 +77,7 @@ export async function renderUrl(
   if (options.wait_after_load != null)
     params.set("wait", String(options.wait_after_load));
   if (options.article) params.set("article", "true");
+  if (options.images) params.set("images", "true");
 
   const query = params.toString();
   const renderUrl = `/render/${url}${query ? `?${query}` : ""}`;

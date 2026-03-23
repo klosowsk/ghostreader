@@ -12,7 +12,7 @@
  */
 
 import { extract } from './extraction.js';
-import { htmlToMarkdownWithAI, isOllamaAvailable, getAiModelInfo } from './ollama.js';
+import { toMarkdownWithAI, isOllamaAvailable, getAiModelInfo } from './ollama.js';
 import { config } from '../config.js';
 
 export type Engine = 'standard' | 'ai' | 'auto' | string;
@@ -24,6 +24,7 @@ export interface ProcessOptions {
   engine?: Engine;
   format?: OutputFormat;
   article?: boolean;
+  images?: boolean;
 }
 
 export interface ProcessResult {
@@ -51,7 +52,7 @@ function isComplex(html: string): boolean {
  * Process HTML through the content pipeline.
  */
 export async function process(options: ProcessOptions): Promise<ProcessResult> {
-  const { html, url, format = 'markdown', article = false } = options;
+  const { html, url, format = 'markdown', article = false, images = false } = options;
   let engine = options.engine || 'standard';
 
   // Backward compat aliases
@@ -69,7 +70,7 @@ export async function process(options: ProcessOptions): Promise<ProcessResult> {
 
   // For HTML format, extract cleaned HTML (no markdown conversion)
   if (format === 'html') {
-    const extracted = await extract(html, url, { article, markdown: false });
+    const extracted = await extract(html, url, { article, markdown: false, images });
     return {
       content: extracted.content,
       format: 'html',
@@ -84,7 +85,7 @@ export async function process(options: ProcessOptions): Promise<ProcessResult> {
 
   // For JSON format, return metadata
   if (format === 'json') {
-    const extracted = await extract(html, url, { article, markdown: false });
+    const extracted = await extract(html, url, { article, markdown: false, images });
     const result = {
       title: extracted.title,
       author: extracted.author,
@@ -106,7 +107,7 @@ export async function process(options: ProcessOptions): Promise<ProcessResult> {
 
   // Standard engine: Defuddle handles extraction + markdown conversion
   if (engine === 'standard') {
-    const extracted = await extract(html, url, { article, markdown: true });
+    const extracted = await extract(html, url, { article, markdown: true, images });
     return {
       content: extracted.content,
       format: 'markdown',
@@ -119,9 +120,20 @@ export async function process(options: ProcessOptions): Promise<ProcessResult> {
     };
   }
 
-  // AI engine: Defuddle cleans HTML, then Ollama converts to markdown
+  // AI engine: Defuddle extracts markdown (images always stripped for AI),
+  // then Ollama restructures it into clean, well-formatted markdown.
+  //
+  // Sending Defuddle markdown (not HTML) to reader-lm-v2 is 30-50% faster
+  // and produces equally structured output for most pages.
+  // For complex pages (many tables/math), we still send HTML to preserve
+  // structure that markdown conversion might lose.
   if (engine === 'ai') {
-    const extracted = await extract(html, url, { article, markdown: false });
+    const complex = isComplex(html);
+    const extracted = await extract(html, url, {
+      article,
+      markdown: !complex,
+      images: false,
+    });
 
     // Truncate if content exceeds AI context window
     const maxChars = config.ollamaMaxContext * 3;
@@ -134,7 +146,7 @@ export async function process(options: ProcessOptions): Promise<ProcessResult> {
       console.warn(`[ghostreader] ${warning}`);
     }
 
-    const markdown = await htmlToMarkdownWithAI(aiInput);
+    const markdown = await toMarkdownWithAI(aiInput, { isHtml: complex });
     const output = warning ? `${markdown}\n\n---\n_${warning}_` : markdown;
 
     return {
@@ -150,7 +162,7 @@ export async function process(options: ProcessOptions): Promise<ProcessResult> {
   }
 
   // Unknown engine — fall back to standard
-  const extracted = await extract(html, url, { article, markdown: true });
+  const extracted = await extract(html, url, { article, markdown: true, images });
   return {
     content: extracted.content,
     format: 'markdown',

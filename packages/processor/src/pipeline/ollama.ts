@@ -76,6 +76,23 @@ function stripCodeFence(text: string): string {
 }
 
 /**
+ * Strip markdown image syntax from text.
+ * Safety net: images should already be removed at the HTML level in preClean,
+ * but this catches any that leak through Defuddle's markdown conversion.
+ */
+function stripMarkdownImages(text: string): string {
+  // Strip linked images: [![alt](img-url)](link-url)
+  let cleaned = text.replace(/\[!\[[^\]]*\]\([^)]+\)\]\([^)]+\)/g, '');
+  // Strip standalone images: ![alt](url)
+  cleaned = cleaned.replace(/!\[[^\]]*\]\([^)]+\)/g, '');
+  // Clean up empty link wrappers left behind: [](url)
+  cleaned = cleaned.replace(/\[\]\([^)]+\)\s*/g, '');
+  // Collapse multiple blank lines
+  cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
+  return cleaned;
+}
+
+/**
  * Estimate token count from HTML character count.
  * HTML averages ~3 chars per token.
  */
@@ -93,15 +110,23 @@ function dynamicContext(inputTokens: number): number {
 }
 
 /**
- * Convert HTML to markdown using the configured Ollama AI model.
+ * Convert content to clean markdown using the configured Ollama AI model.
+ *
+ * Input can be either HTML or pre-extracted markdown (Defuddle output).
+ * Sending markdown is 30-50% faster for most pages; HTML is better for
+ * complex data-heavy pages where markdown conversion loses structure.
  *
  * Automatically selects optimal inference params based on model family:
- *   - reader-lm: temperature=0, no system prompt (trained for raw HTML input)
- *   - qwen: temperature=0.7, top_p=0.8, top_k=20, system prompt, num_predict capped
+ *   - reader-lm: temperature=0, deterministic output
+ *   - qwen: temperature=0.7, top_p=0.8, top_k=20, num_predict capped
  *   - other: temperature=0, system prompt
  */
-export async function htmlToMarkdownWithAI(html: string): Promise<string> {
+export async function toMarkdownWithAI(
+  content: string,
+  options?: { isHtml?: boolean },
+): Promise<string> {
   const model = config.ollamaAiModel;
+  const isHtml = options?.isHtml ?? false;
 
   // Pre-flight: is Ollama reachable?
   const available = await isOllamaAvailable();
@@ -112,15 +137,25 @@ export async function htmlToMarkdownWithAI(html: string): Promise<string> {
     );
   }
 
-  const inputTokens = estimateTokens(html);
+  // Strip any residual markdown images before sending to AI
+  const input = isHtml ? content : stripMarkdownImages(content);
+
+  const inputTokens = estimateTokens(input);
   const numCtx = dynamicContext(inputTokens);
+
+  const systemPrompt = isHtml
+    ? 'You are a precise HTML-to-Markdown converter. Convert the provided HTML to clean, well-formatted Markdown. Preserve all content, links, headings, lists, tables, and code blocks. For listings or catalogs, create structured tables. Remove navigation, filters, and decorative elements. Output only the markdown, no explanations.'
+    : 'You are a content formatter. Clean up and restructure the provided markdown into well-formatted, readable markdown. For listings or catalogs, create structured tables with appropriate columns. Remove navigation noise, filter links, and empty sections. Preserve all data content and links. Output only the cleaned markdown, no explanations.';
 
   // Model-family specific settings
   if (isReaderLM(model)) {
-    // reader-lm is trained on raw HTML, no system prompt needed, deterministic output
+    // reader-lm works with both HTML and markdown input, deterministic output
     const response = await getClient().chat({
       model,
-      messages: [{ role: 'user', content: html }],
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: input },
+      ],
       options: {
         temperature: 0,
         num_ctx: numCtx,
@@ -134,12 +169,8 @@ export async function htmlToMarkdownWithAI(html: string): Promise<string> {
     const response = await getClient().chat({
       model,
       messages: [
-        {
-          role: 'system',
-          content:
-            'You are a precise HTML-to-Markdown converter. Convert the provided HTML to clean, well-formatted Markdown. Preserve all content, links, headings, lists, tables, and code blocks. Output only the markdown, no explanations.',
-        },
-        { role: 'user', content: html },
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: input },
       ],
       options: {
         temperature: 0.7,
@@ -156,12 +187,8 @@ export async function htmlToMarkdownWithAI(html: string): Promise<string> {
   const response = await getClient().chat({
     model,
     messages: [
-      {
-        role: 'system',
-        content:
-          'You are a precise HTML-to-Markdown converter. Convert the provided HTML to clean, well-formatted Markdown. Preserve all content, links, headings, lists, tables, and code blocks. Output only the markdown, no explanations.',
-      },
-      { role: 'user', content: html },
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: input },
     ],
     options: {
       temperature: 0,

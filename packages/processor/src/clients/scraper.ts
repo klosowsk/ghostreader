@@ -35,7 +35,7 @@ export async function scrape(options: ScrapeOptions): Promise<ScrapeResult> {
       timeout: options.timeout ?? 60000,
       headers: options.headers,
       wait_for_selector: options.waitForSelector,
-      wait_until: options.waitUntil ?? 'domcontentloaded',
+      wait_until: options.waitUntil ?? 'load',
     }),
   });
 

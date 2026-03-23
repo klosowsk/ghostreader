@@ -31,6 +31,7 @@ function App() {
     format: "markdown",
     profile: "google_web",
     article: false,
+    images: false,
   });
 
   // Data sources
@@ -85,6 +86,7 @@ function App() {
             engine: config.engine,
             format: config.format,
             article: config.article,
+            images: config.images,
           });
           setRenderContent(result);
         } else {
@@ -101,6 +103,7 @@ function App() {
           format: config.format,
           profile: config.profile,
           article: config.article,
+          images: config.images,
         });
         setHistory((prev) => {
           const filtered = prev.filter((e) => e.id !== entry.id);
@@ -125,6 +128,7 @@ function App() {
       format: (entry.format as Config["format"]) || "markdown",
       profile: entry.profile || "google_web",
       article: entry.article || false,
+      images: entry.images || false,
     });
     setHistoryOpen(false);
 

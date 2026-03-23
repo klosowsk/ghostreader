@@ -69,10 +69,14 @@ server.tool(
       .boolean()
       .default(false)
       .describe('Enable article mode: aggressively extract main content, strip sidebars/noise. Best for blog posts and news articles.'),
+    images: z
+      .boolean()
+      .default(false)
+      .describe('Keep images in output (default: false). When false, strips all <img>/<picture> tags for cleaner text-only output.'),
   },
-  async ({ url, wait_after_load, engine, article }) => {
+  async ({ url, wait_after_load, engine, article, images }) => {
     try {
-      const params = `engine=${engine}&wait=${wait_after_load}${article ? '&article=true' : ''}`;
+      const params = `engine=${engine}&wait=${wait_after_load}${article ? '&article=true' : ''}${images ? '&images=true' : ''}`;
       const markdown = await get(`/render/${url}?${params}`);
       return {
         content: [{ type: 'text' as const, text: truncate(markdown) }],

@@ -1,7 +1,6 @@
 import { AlertTriangle, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Table,
   TableBody,
@@ -72,65 +71,65 @@ export function ExtractView({
         )}
       </div>
 
-      {/* Results table */}
+      {/* Suggestions — shown above results so they're always visible */}
+      {data.suggestions && data.suggestions.length > 0 && (
+        <div className="mb-3">
+          <p className="text-xs text-muted-foreground mb-1.5">Suggestions</p>
+          <div className="flex flex-wrap gap-1.5">
+            {data.suggestions.map((s, i) => (
+              <Badge key={i} variant="outline" className="cursor-default">
+                {s}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Results table — natural page scroll, no constrained height */}
       {data.results.length > 0 && (
-        <ScrollArea className="max-h-[65vh] rounded-lg border border-border">
+        <div className="rounded-lg border border-border overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[30%]">Title</TableHead>
-                <TableHead className="w-[30%]">URL</TableHead>
-                <TableHead>Content</TableHead>
+                <TableHead className="w-[30%] min-w-[150px]">Title</TableHead>
+                <TableHead className="w-[25%] min-w-[120px]">URL</TableHead>
+                <TableHead className="min-w-[200px]">Content</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {data.results.map((r, i) => (
                 <TableRow key={i}>
-                  <TableCell className="font-medium whitespace-normal">
+                  <TableCell className="font-medium whitespace-normal align-top">
                     {r.title || <span className="text-muted-foreground italic">No title</span>}
                   </TableCell>
-                  <TableCell className="whitespace-normal">
+                  <TableCell className="whitespace-normal align-top">
                     {r.url ? (
                       <a
                         href={r.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-primary hover:underline break-all"
+                        className="inline-flex items-center gap-1 text-primary hover:underline break-all text-sm"
                       >
-                        <span className="truncate max-w-[200px]">{r.url}</span>
+                        <span className="line-clamp-2">{r.url}</span>
                         <ExternalLink className="size-3 shrink-0" />
                       </a>
                     ) : (
                       <span className="text-muted-foreground italic">-</span>
                     )}
                   </TableCell>
-                  <TableCell className="whitespace-normal text-muted-foreground max-w-[300px]">
+                  <TableCell className="whitespace-normal text-muted-foreground align-top">
                     {r.content || <span className="italic">-</span>}
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
-        </ScrollArea>
+        </div>
       )}
 
       {data.results.length === 0 && !data.error && (
         <div className="rounded-lg border border-border bg-card p-8 text-center text-muted-foreground">
           No results found.
-        </div>
-      )}
-
-      {/* Suggestions */}
-      {data.suggestions && data.suggestions.length > 0 && (
-        <div className="mt-4">
-          <p className="text-xs text-muted-foreground mb-2">Suggestions</p>
-          <div className="flex flex-wrap gap-1.5">
-            {data.suggestions.map((s, i) => (
-              <Badge key={i} variant="outline">
-                {s}
-              </Badge>
-            ))}
-          </div>
         </div>
       )}
     </div>

@@ -9,6 +9,7 @@ export interface HistoryEntry {
   format?: string;
   profile?: string;
   article?: boolean;
+  images?: boolean;
   timestamp: number;
 }
 

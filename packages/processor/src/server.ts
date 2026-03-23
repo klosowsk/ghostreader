@@ -27,6 +27,7 @@ app.post('/process', async (c) => {
     engine?: Engine;
     format?: OutputFormat;
     article?: boolean;
+    images?: boolean;
   }>();
 
   if (!body.html) {
@@ -40,6 +41,7 @@ app.post('/process', async (c) => {
       engine: body.engine,
       format: body.format,
       article: body.article,
+      images: body.images,
     });
 
     if (result.format === 'html') {
@@ -66,6 +68,7 @@ app.post('/scrape', async (c) => {
     format?: OutputFormat;
     engine?: Engine;
     article?: boolean;
+    images?: boolean;
     wait_after_load?: number;
     timeout?: number;
   }>();
@@ -87,6 +90,7 @@ app.post('/scrape', async (c) => {
       engine: body.engine,
       format: body.format,
       article: body.article,
+      images: body.images,
     });
 
     if (result.format === 'html') {
@@ -120,9 +124,10 @@ app.get('/render/*', async (c) => {
   const wait = parseFloat(queryParams.wait || '2');
   const timeout = queryParams.timeout ? parseInt(queryParams.timeout, 10) : undefined;
   const article = queryParams.article === 'true';
+  const images = queryParams.images === 'true';
 
   // Rebuild target URL with remaining query params
-  const ourParams = new Set(['format', 'engine', 'wait', 'timeout', 'article']);
+  const ourParams = new Set(['format', 'engine', 'wait', 'timeout', 'article', 'images']);
   const targetParams = new URLSearchParams();
   for (const [key, value] of Object.entries(queryParams)) {
     if (!ourParams.has(key)) {
@@ -147,6 +152,7 @@ app.get('/render/*', async (c) => {
       engine,
       format,
       article,
+      images,
     });
 
     if (result.format === 'html') {

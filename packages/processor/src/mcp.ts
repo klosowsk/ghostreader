@@ -31,7 +31,7 @@ const server = new McpServer({
 server.tool(
   'ghostreader_scrape',
   'Render a URL using an anti-detect browser and return the page content as markdown. ' +
-    'Uses Mozilla Readability + Turndown for clean output. ' +
+    'Uses Defuddle for content extraction with optional AI-powered formatting via Ollama. ' +
     'The browser has a persistent identity (fingerprint, cookies, cache) that avoids bot detection.',
   {
     url: z.string().url().describe('The URL to render and return as markdown'),
@@ -49,8 +49,12 @@ server.tool(
       .boolean()
       .default(false)
       .describe('Enable article mode: aggressively extract main content, strip sidebars/noise'),
+    images: z
+      .boolean()
+      .default(false)
+      .describe('Keep images in output (default: false). When false, strips all images for cleaner text output.'),
   },
-  async ({ url, wait_after_load, engine }) => {
+  async ({ url, wait_after_load, engine, article, images }) => {
     try {
       const scraped = await scrape({
         url,
@@ -63,6 +67,8 @@ server.tool(
         url: scraped.url,
         engine,
         format: 'markdown',
+        article,
+        images,
       });
 
       return {

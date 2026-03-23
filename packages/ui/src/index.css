@@ -137,7 +137,6 @@
   overflow-wrap: break-word;
   word-break: break-word;
   max-width: 100%;
-  overflow-x: auto;
 
   h1, h2, h3, h4, h5, h6 {
     font-weight: 600;
@@ -224,8 +223,7 @@
     width: 100%;
     border-collapse: collapse;
     margin: 1em 0;
-    display: block;
-    overflow-x: auto;
+    font-size: 0.875em;
   }
 
   th, td {
@@ -237,6 +235,7 @@
   th {
     font-weight: 600;
     background: var(--muted);
+    white-space: nowrap;
   }
 
   img {

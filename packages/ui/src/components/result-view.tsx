@@ -77,6 +77,11 @@ export function ResultView({
           )}
           <Badge variant="outline">{engine}</Badge>
           <Badge variant="outline">{format}</Badge>
+          <Badge variant="outline" className="text-muted-foreground">
+            {content.length < 1024
+              ? `${content.length} chars`
+              : `${(content.length / 1024).toFixed(1)} KB`}
+          </Badge>
         </div>
         <div className="flex items-center gap-1">
           <Button
