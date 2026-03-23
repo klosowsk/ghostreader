@@ -35,11 +35,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Fetch the Camoufox browser binary
 RUN python -m camoufox fetch
 
-# Copy the service and profiles
+# Copy the service
 COPY server.py .
-COPY profiles/ profiles/
 
-# Default userdata directory for persistent profiles (override with volume mount)
+# Default userdata directory for persistent browser identity (override with volume mount)
 RUN mkdir -p /userdata
 
 # Default environment — all configurable at runtime

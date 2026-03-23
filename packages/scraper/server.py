@@ -11,9 +11,6 @@ Endpoints:
 POST /scrape
   Body: {"url": "https://...", "wait_after_load": 2, "timeout": 15000}
   Returns: {"html": "...", "status": 200, "url": "..."}
-
-POST /extract
-  Body: {"url": "https://...", "profile": "google_web", "timeout": 30000}
   Returns: {"results": [...], "suggestions": [...], "captcha": false, "error": null}
 
 GET /render/{url}
@@ -536,111 +533,6 @@ async def handle_render(request: web.Request) -> web.Response:
         return web.json_response({"error": str(e)}, status=500)
 
 
-async def handle_extract(request: web.Request) -> web.Response:
-    """Handle an extract request.
-
-    Renders a URL, then extracts structured results using a profile or
-    XPath selectors.  Returns a JSON response with results, suggestions,
-    and CAPTCHA status.
-    """
-    try:
-        body = await request.json()
-    except json.JSONDecodeError:
-        return web.json_response({"error": "Invalid JSON body"}, status=400)
-
-    url = body.get("url")
-    if not url:
-        return web.json_response({"error": "Missing 'url' field"}, status=400)
-
-    profile_name = body.get("profile")
-    timeout = body.get("timeout", 15000)
-
-    logger.info("Extracting: %s (profile=%s)", url, profile_name or "none")
-
-    # Load the profile (or fall back to base for generic XPath extraction)
-    from profiles import load_profile
-
-    profile = None
-    if profile_name:
-        profile = load_profile(profile_name)
-        if profile is None:
-            return web.json_response(
-                {"error": f"Unknown profile: {profile_name}"}, status=400
-            )
-
-    # Determine rendering options from the profile or defaults
-    wait_for_selector = getattr(profile, "WAIT_FOR_SELECTOR", None) if profile else None
-    wait_after_load = getattr(profile, "WAIT_AFTER_LOAD", 2) if profile else body.get("wait_after_load", 2)
-    headers = body.get("headers")
-
-    try:
-        page_html, status_code, final_url = await render_page(
-            url=url,
-            wait_after_load=wait_after_load,
-            timeout=timeout,
-            headers=headers,
-            wait_for_selector=wait_for_selector,
-        )
-    except Exception as e:
-        logger.error("Error rendering %s: %s", url, e)
-        return web.json_response({
-            "results": [],
-            "suggestions": [],
-            "captcha": False,
-            "error": str(e),
-        })
-
-    logger.info("Rendered %s -> %d (%d bytes)", url, status_code, len(page_html))
-
-    # Check for CAPTCHA patterns in the final URL
-    captcha_patterns = getattr(profile, "CAPTCHA_PATTERNS", []) if profile else []
-    is_captcha = any(pattern in final_url.lower() for pattern in captcha_patterns)
-
-    if is_captcha:
-        logger.warning("CAPTCHA detected at %s", final_url)
-        return web.json_response({
-            "results": [],
-            "suggestions": [],
-            "captcha": True,
-            "error": None,
-        })
-
-    # Extract results
-    try:
-        if profile and hasattr(profile, "extract"):
-            data = profile.extract(page_html, final_url)
-        elif body.get("extract"):
-            # Generic XPath extraction from request payload
-            base_profile = load_profile("base")
-            data = base_profile.extract(page_html, final_url, **body["extract"])
-        else:
-            # No profile and no XPath config -- return raw HTML
-            return web.json_response({
-                "html": page_html,
-                "url": final_url,
-                "captcha": False,
-                "error": None,
-            })
-    except Exception as e:
-        logger.error("Error extracting results from %s: %s", url, e)
-        return web.json_response({
-            "results": [],
-            "suggestions": [],
-            "captcha": False,
-            "error": f"Extraction failed: {e}",
-        })
-
-    result_count = len(data.get("results", []))
-    logger.info("Extracted %d results from %s", result_count, url)
-
-    return web.json_response({
-        "results": data.get("results", []),
-        "suggestions": data.get("suggestions", []),
-        "captcha": False,
-        "error": None,
-    })
-
-
 async def handle_health(request: web.Request) -> web.Response:
     """Health check endpoint."""
     return web.json_response({"status": "ok"})
@@ -687,7 +579,6 @@ def create_app() -> web.Application:
     """Create the aiohttp application."""
     app = web.Application()
     app.router.add_post("/scrape", handle_scrape)
-    app.router.add_post("/extract", handle_extract)
     app.router.add_get("/render/{url:.*}", handle_render)
     app.router.add_get("/health", handle_health)
     app.router.add_get("/config", handle_config)
