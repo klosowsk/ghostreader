@@ -38,7 +38,7 @@ jobs:
       - name: Set version
         run: |
           cd packages/cli
-          npm version ${{ inputs.version }} --no-git-tag-version
+          npm version ${{ inputs.version }} --no-git-tag-version --allow-same-version
 
       - name: Publish
         run: |
