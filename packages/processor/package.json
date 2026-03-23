@@ -12,10 +12,11 @@
   "dependencies": {
     "@hono/node-server": "^1.19.11",
     "@modelcontextprotocol/sdk": "^1.27.1",
-    "@mozilla/readability": "^0.5.0",
     "cheerio": "^1.2.0",
+    "defuddle": "^0.14.0",
     "hono": "^4.7.0",
     "jsdom": "^26.1.0",
+    "linkedom": "^0.18.12",
     "ollama": "^0.5.0",
     "turndown": "^7.2.0",
     "zod": "^4.3.6"
@@ -23,7 +24,6 @@
   "devDependencies": {
     "@types/jsdom": "^21.1.7",
     "@types/node": "^22.0.0",
-    "@types/turndown": "^5.0.5",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0"
   }

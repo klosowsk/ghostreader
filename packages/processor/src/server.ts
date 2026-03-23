@@ -26,6 +26,7 @@ app.post('/process', async (c) => {
     url?: string;
     engine?: Engine;
     format?: OutputFormat;
+    article?: boolean;
   }>();
 
   if (!body.html) {
@@ -38,6 +39,7 @@ app.post('/process', async (c) => {
       url: body.url,
       engine: body.engine,
       format: body.format,
+      article: body.article,
     });
 
     if (result.format === 'html') {
@@ -63,6 +65,7 @@ app.post('/scrape', async (c) => {
     url: string;
     format?: OutputFormat;
     engine?: Engine;
+    article?: boolean;
     wait_after_load?: number;
     timeout?: number;
   }>();
@@ -83,6 +86,7 @@ app.post('/scrape', async (c) => {
       url: scraped.url,
       engine: body.engine,
       format: body.format,
+      article: body.article,
     });
 
     if (result.format === 'html') {
@@ -112,12 +116,13 @@ app.get('/render/*', async (c) => {
   // Parse our query params vs target URL params
   const queryParams = c.req.query();
   const format = (queryParams.format as OutputFormat) || 'markdown';
-  const engine = (queryParams.engine as Engine) || 'turndown';
+  const engine = (queryParams.engine as Engine) || 'standard';
   const wait = parseFloat(queryParams.wait || '2');
   const timeout = queryParams.timeout ? parseInt(queryParams.timeout, 10) : undefined;
+  const article = queryParams.article === 'true';
 
   // Rebuild target URL with remaining query params
-  const ourParams = new Set(['format', 'engine', 'wait', 'timeout']);
+  const ourParams = new Set(['format', 'engine', 'wait', 'timeout', 'article']);
   const targetParams = new URLSearchParams();
   for (const [key, value] of Object.entries(queryParams)) {
     if (!ourParams.has(key)) {
@@ -141,6 +146,7 @@ app.get('/render/*', async (c) => {
       url: scraped.url,
       engine,
       format,
+      article,
     });
 
     if (result.format === 'html') {

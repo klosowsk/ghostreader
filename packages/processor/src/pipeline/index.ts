@@ -1,19 +1,21 @@
 /**
  * Content processing pipeline orchestrator.
  *
- * Four engines:
- *   - standard (default): Smart DOM extraction + Turndown — fast, no AI, preserves all data
- *   - clean: Readability + Turndown — aggressive article extraction, strips boilerplate
- *   - ai: Ollama AI model (configurable via OLLAMA_AI_MODEL, default reader-lm-v2)
+ * Engines:
+ *   - standard (default): Defuddle extraction + markdown — fast, no AI
+ *   - ai: Defuddle extraction + Ollama AI model for markdown conversion
  *   - auto: standard if no Ollama, ai if available and page is complex
+ *
+ * The `article` toggle applies to ALL engines:
+ *   - article=false (default): forgiving extraction, preserves data tables/charts
+ *   - article=true: aggressive content scoring, extracts article body only
  */
 
-import { extractContent, extractArticle } from './readability.js';
-import { htmlToMarkdown } from './turndown.js';
+import { extract } from './extraction.js';
 import { htmlToMarkdownWithAI, isOllamaAvailable, getAiModelInfo } from './ollama.js';
 import { config } from '../config.js';
 
-export type Engine = 'standard' | 'clean' | 'ai' | 'auto' | string;
+export type Engine = 'standard' | 'ai' | 'auto' | string;
 export type OutputFormat = 'markdown' | 'html' | 'json';
 
 export interface ProcessOptions {
@@ -21,6 +23,7 @@ export interface ProcessOptions {
   url?: string;
   engine?: Engine;
   format?: OutputFormat;
+  article?: boolean;
 }
 
 export interface ProcessResult {
@@ -28,6 +31,10 @@ export interface ProcessResult {
   format: OutputFormat;
   engine: string;
   title?: string;
+  author?: string;
+  description?: string;
+  wordCount?: number;
+  parseTime?: number;
 }
 
 /**
@@ -37,7 +44,6 @@ function isComplex(html: string): boolean {
   const tableCount = (html.match(/<table[\s>]/gi) || []).length;
   const mathPresent = /<math[\s>]/i.test(html) || /\$\$/.test(html) || /\\begin\{/i.test(html);
   const preCount = (html.match(/<pre[\s>]/gi) || []).length;
-
   return tableCount >= 3 || mathPresent || preCount >= 5;
 }
 
@@ -45,11 +51,11 @@ function isComplex(html: string): boolean {
  * Process HTML through the content pipeline.
  */
 export async function process(options: ProcessOptions): Promise<ProcessResult> {
-  const { html, url, format = 'markdown' } = options;
+  const { html, url, format = 'markdown', article = false } = options;
   let engine = options.engine || 'standard';
 
   // Backward compat aliases
-  if (engine === 'turndown') engine = 'standard';
+  if (engine === 'turndown' || engine === 'clean') engine = 'standard';
   if (engine === 'readerlm' || engine === 'qwen-small') engine = 'ai';
 
   // Auto-select engine
@@ -61,26 +67,34 @@ export async function process(options: ProcessOptions): Promise<ProcessResult> {
     }
   }
 
-  // Choose extraction strategy based on engine
-  const useArticle = engine === 'clean';
-  const extracted = useArticle ? extractArticle(html, url) : extractContent(html, url);
-
-  // HTML format: return cleaned HTML
+  // For HTML format, extract cleaned HTML (no markdown conversion)
   if (format === 'html') {
+    const extracted = await extract(html, url, { article, markdown: false });
     return {
       content: extracted.content,
       format: 'html',
       engine,
       title: extracted.title,
+      author: extracted.author,
+      description: extracted.description,
+      wordCount: extracted.wordCount,
+      parseTime: extracted.parseTime,
     };
   }
 
-  // JSON format: return metadata
+  // For JSON format, return metadata
   if (format === 'json') {
+    const extracted = await extract(html, url, { article, markdown: false });
     const result = {
       title: extracted.title,
+      author: extracted.author,
+      description: extracted.description,
+      published: extracted.published,
+      domain: extracted.domain,
+      site: extracted.site,
       content: extracted.content,
-      length: extracted.content.length,
+      wordCount: extracted.wordCount,
+      parseTime: extracted.parseTime,
     };
     return {
       content: JSON.stringify(result),
@@ -90,48 +104,60 @@ export async function process(options: ProcessOptions): Promise<ProcessResult> {
     };
   }
 
-  // Markdown with standard or clean engine
-  if (engine === 'standard' || engine === 'clean') {
-    const markdown = htmlToMarkdown(extracted.content);
+  // Standard engine: Defuddle handles extraction + markdown conversion
+  if (engine === 'standard') {
+    const extracted = await extract(html, url, { article, markdown: true });
     return {
-      content: markdown,
+      content: extracted.content,
       format: 'markdown',
-      engine,
+      engine: 'standard',
       title: extracted.title,
+      author: extracted.author,
+      description: extracted.description,
+      wordCount: extracted.wordCount,
+      parseTime: extracted.parseTime,
     };
   }
 
-  // AI engine: send pre-cleaned HTML to the configured Ollama model
+  // AI engine: Defuddle cleans HTML, then Ollama converts to markdown
   if (engine === 'ai') {
-    const maxChars = config.ollamaMaxContext * 3; // ~3 chars per token
-    const inputChars = extracted.content.length;
+    const extracted = await extract(html, url, { article, markdown: false });
+
+    // Truncate if content exceeds AI context window
+    const maxChars = config.ollamaMaxContext * 3;
     let aiInput = extracted.content;
     let warning: string | undefined;
 
-    if (inputChars > maxChars) {
-      // Truncate to fit context, keep beginning (most important content)
-      aiInput = extracted.content.slice(0, maxChars);
-      warning = `Content truncated from ${Math.round(inputChars / 1024)}KB to ${Math.round(maxChars / 1024)}KB to fit AI context window (${config.ollamaMaxContext} tokens). Some content at the end of the page may be missing.`;
+    if (aiInput.length > maxChars) {
+      aiInput = aiInput.slice(0, maxChars);
+      warning = `Content truncated from ${Math.round(extracted.content.length / 1024)}KB to ${Math.round(maxChars / 1024)}KB to fit AI context window (${config.ollamaMaxContext} tokens). Some content may be missing.`;
       console.warn(`[ghostreader] ${warning}`);
     }
 
     const markdown = await htmlToMarkdownWithAI(aiInput);
     const output = warning ? `${markdown}\n\n---\n_${warning}_` : markdown;
+
     return {
       content: output,
       format: 'markdown',
       engine: 'ai',
       title: extracted.title,
+      author: extracted.author,
+      description: extracted.description,
+      wordCount: extracted.wordCount,
+      parseTime: extracted.parseTime,
     };
   }
 
   // Unknown engine — fall back to standard
-  const markdown = htmlToMarkdown(extracted.content);
+  const extracted = await extract(html, url, { article, markdown: true });
   return {
-    content: markdown,
+    content: extracted.content,
     format: 'markdown',
     engine: 'standard',
     title: extracted.title,
+    wordCount: extracted.wordCount,
+    parseTime: extracted.parseTime,
   };
 }
 
@@ -144,7 +170,6 @@ export async function getAvailableEngines(): Promise<Array<{ name: string; type:
 
   return [
     { name: 'standard', type: 'fast', available: true },
-    { name: 'clean', type: 'fast', available: true },
     { name: 'ai', type: 'ai', model: aiInfo.model, available: aiAvailable },
     { name: 'auto', type: 'auto', available: true },
   ];

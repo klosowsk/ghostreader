@@ -64,11 +64,16 @@ server.tool(
     engine: z
       .string()
       .default('standard')
-      .describe('Processing engine: standard (default, fast), clean (article extraction), ai (Ollama AI model), auto'),
+      .describe('Processing engine: standard (default, fast), ai (Ollama AI model), auto'),
+    article: z
+      .boolean()
+      .default(false)
+      .describe('Enable article mode: aggressively extract main content, strip sidebars/noise. Best for blog posts and news articles.'),
   },
-  async ({ url, wait_after_load, engine }) => {
+  async ({ url, wait_after_load, engine, article }) => {
     try {
-      const markdown = await get(`/render/${url}?engine=${engine}&wait=${wait_after_load}`);
+      const params = `engine=${engine}&wait=${wait_after_load}${article ? '&article=true' : ''}`;
+      const markdown = await get(`/render/${url}?${params}`);
       return {
         content: [{ type: 'text' as const, text: truncate(markdown) }],
       };

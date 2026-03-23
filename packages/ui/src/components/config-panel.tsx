@@ -12,7 +12,6 @@ export type Format = "markdown" | "html" | "json";
 
 const ENGINE_LABELS: Record<string, string> = {
   standard: "Standard (fast)",
-  clean: "Clean (articles)",
   ai: "AI",
   auto: "Auto",
 };
@@ -26,6 +25,7 @@ export interface Config {
   engine: string;
   format: Format;
   profile: string;
+  article: boolean;
 }
 
 interface ConfigPanelProps {
@@ -93,6 +93,21 @@ export function ConfigPanel({
               <SelectItem value="json">json</SelectItem>
             </SelectContent>
           </Select>
+        )}
+
+        {/* Article toggle - only in render mode */}
+        {config.mode === "render" && (
+          <button
+            type="button"
+            onClick={() => update({ article: !config.article })}
+            className={`h-8 px-3 rounded-md text-xs font-medium border transition-colors ${
+              config.article
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-transparent text-muted-foreground border-border hover:text-foreground"
+            }`}
+          >
+            Article
+          </button>
         )}
 
         {/* Profile select - only in extract mode */}

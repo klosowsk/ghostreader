@@ -44,7 +44,11 @@ server.tool(
     engine: z
       .string()
       .default('standard')
-      .describe('Processing engine: standard (default, fast), clean (article extraction), ai (Ollama AI model), auto'),
+      .describe('Processing engine: standard (default, fast), ai (Ollama AI model), auto'),
+    article: z
+      .boolean()
+      .default(false)
+      .describe('Enable article mode: aggressively extract main content, strip sidebars/noise'),
   },
   async ({ url, wait_after_load, engine }) => {
     try {

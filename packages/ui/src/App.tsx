@@ -20,7 +20,7 @@ import {
   type HistoryEntry,
 } from "@/lib/history";
 
-const DEFAULT_ENGINES = ["standard", "clean", "ai", "auto"];
+const DEFAULT_ENGINES = ["standard", "ai", "auto"];
 const DEFAULT_PROFILES = ["google_web", "google_news", "base"];
 
 function App() {
@@ -30,6 +30,7 @@ function App() {
     engine: "standard",
     format: "markdown",
     profile: "google_web",
+    article: false,
   });
 
   // Data sources
@@ -83,6 +84,7 @@ function App() {
           const result = await renderUrl(url, {
             engine: config.engine,
             format: config.format,
+            article: config.article,
           });
           setRenderContent(result);
         } else {
@@ -98,6 +100,7 @@ function App() {
           engine: config.engine,
           format: config.format,
           profile: config.profile,
+          article: config.article,
         });
         setHistory((prev) => {
           const filtered = prev.filter((e) => e.id !== entry.id);
@@ -121,6 +124,7 @@ function App() {
       engine: entry.engine || "standard",
       format: (entry.format as Config["format"]) || "markdown",
       profile: entry.profile || "google_web",
+      article: entry.article || false,
     });
     setHistoryOpen(false);
 

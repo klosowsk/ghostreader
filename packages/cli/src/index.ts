@@ -42,11 +42,12 @@ function parseArgs(args: string[]) {
 }
 
 async function render(url: string, flags: Record<string, string>) {
-  const engine = flags.engine || 'turndown';
+  const engine = flags.engine || 'standard';
   const format = flags.format || 'markdown';
   const wait = flags.wait || '2';
+  const article = flags.article === 'true' ? '&article=true' : '';
 
-  const res = await fetch(`${BASE_URL}/render/${url}?engine=${engine}&format=${format}&wait=${wait}`);
+  const res = await fetch(`${BASE_URL}/render/${url}?engine=${engine}&format=${format}&wait=${wait}${article}`);
   if (!res.ok) {
     const text = await res.text();
     console.error(`Error: ${res.status} ${text}`);
@@ -152,8 +153,9 @@ Usage:
   ghostreader health                    Check processor health
 
 Options (render):
-  --engine <name>     Processing engine: standard (default, fast), clean (articles), ai (Ollama), auto
+  --engine <name>     Processing engine: standard (default, fast), ai (Ollama), auto
   --format <type>     Output format: markdown (default), html, json
+  --article           Enable article mode (aggressive content extraction)
 
 Options (extract):
   --profile <name>    Extraction profile (required): google_web, google_news, base
