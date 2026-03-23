@@ -1,5 +1,8 @@
 # GhostReader
 
+[![npm ghostreader](https://img.shields.io/npm/v/ghostreader?label=cli)](https://www.npmjs.com/package/ghostreader)
+[![npm ghostreader-mcp](https://img.shields.io/npm/v/ghostreader-mcp?label=mcp)](https://www.npmjs.com/package/ghostreader-mcp)
+
 Self-hosted anti-detect browser rendering proxy with AI-powered content processing. Render any URL to clean markdown through a stealth browser, extract structured data, and optionally restructure content with AI.
 
 ![GhostReader UI](docs/screenshot.png)
@@ -64,7 +67,7 @@ curl http://localhost:3000/render/https://example.com
 
 ## Documentation
 
-Full documentation is available at the `/docs` page on any running instance, covering:
+See the [full documentation](docs/docs.md) or visit `/docs` on any running instance:
 
 - API reference
 - CLI commands
