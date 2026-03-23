@@ -1,19 +1,30 @@
-FROM node:22-slim AS builder
+# Build context must be the monorepo root (ghostreader/)
+# Usage: docker build -f packages/processor/Dockerfile .
 
+# Stage 1: Build UI
+FROM node:22-slim AS ui-builder
+WORKDIR /ui
+COPY packages/ui/package.json packages/ui/package-lock.json ./
+RUN npm ci
+COPY packages/ui/ ./
+RUN npm run build
+
+# Stage 2: Build processor
+FROM node:22-slim AS processor-builder
 WORKDIR /app
-
-COPY package.json tsconfig.json ./
-COPY src/ src/
+COPY packages/processor/package.json packages/processor/tsconfig.json ./
+COPY packages/processor/src/ src/
 RUN npm install && npm run build
 
+# Stage 3: Production
 FROM node:22-slim
-
 WORKDIR /app
 
-COPY package.json ./
+COPY packages/processor/package.json ./
 RUN npm install --production
 
-COPY --from=builder /app/dist/ dist/
+COPY --from=processor-builder /app/dist/ dist/
+COPY --from=ui-builder /ui/dist/ public/
 
 ENV PORT=3000
 ENV SCRAPER_URL=http://localhost:8080

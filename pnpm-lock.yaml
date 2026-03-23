@@ -42,7 +42,7 @@ importers:
   packages/processor:
     dependencies:
       '@hono/node-server':
-        specifier: ^1.14.0
+        specifier: ^1.19.11
         version: 1.19.11(hono@4.12.9)
       '@modelcontextprotocol/sdk':
         specifier: ^1.27.1

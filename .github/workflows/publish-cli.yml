@@ -1,0 +1,46 @@
+---
+name: Publish CLI
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g., 0.1.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+jobs:
+  publish:
+    name: Publish ghostreader CLI
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install and build
+        run: |
+          cd packages/cli
+          npm install
+          npm run build
+
+      - name: Set version
+        run: |
+          cd packages/cli
+          npm version ${{ inputs.version }} --no-git-tag-version
+
+      - name: Publish
+        run: |
+          cd packages/cli
+          npm publish --access public

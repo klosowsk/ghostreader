@@ -8,6 +8,7 @@ on:
       - main
     paths:
       - 'packages/processor/**'
+      - 'packages/ui/**'
       - '.github/workflows/build-processor.yml'
 
 concurrency:
@@ -49,10 +50,11 @@ jobs:
       - name: Build image
         run: |
           docker buildx build \
+            -f packages/processor/Dockerfile \
             -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.sha_short }} \
             -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
             --load \
-            packages/processor
+            .
 
       - name: Push to GHCR
         run: |

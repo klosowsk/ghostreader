@@ -3,10 +3,16 @@
  */
 
 import { Hono } from 'hono';
+import { serveStatic } from '@hono/node-server/serve-static';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { process, getAvailableEngines, type OutputFormat, type Engine } from './pipeline/index.js';
 import { scrape, scraperHealth } from './clients/scraper.js';
 import { getProfile, listProfiles } from './profiles/index.js';
 import { config } from './config.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const publicDir = path.resolve(__dirname, '..', 'public');
 
 export const app = new Hono();
 
@@ -239,3 +245,12 @@ app.get('/engines', async (c) => {
 app.get('/profiles', (c) => {
   return c.json({ profiles: listProfiles() });
 });
+
+// ---------------------------------------------------------------------------
+// Static UI (served from /public directory)
+// ---------------------------------------------------------------------------
+
+app.use('/*', serveStatic({ root: publicDir }));
+
+// SPA fallback — serve index.html for any unmatched route
+app.get('/*', serveStatic({ root: publicDir, path: 'index.html' }));
