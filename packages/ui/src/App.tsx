@@ -20,7 +20,7 @@ import {
   type HistoryEntry,
 } from "@/lib/history";
 
-const DEFAULT_ENGINES = ["turndown", "readerlm", "qwen-small", "qwen-medium", "qwen-large", "auto"];
+const DEFAULT_ENGINES = ["standard", "clean", "ai", "auto"];
 const DEFAULT_PROFILES = ["google_web", "google_news", "base"];
 
 function App() {

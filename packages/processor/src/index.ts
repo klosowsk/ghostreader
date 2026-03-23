@@ -23,7 +23,7 @@ if (isMcp) {
 } else {
   console.log(`[ghostreader] Starting processor on port ${config.port}`);
   console.log(`[ghostreader] Scraper: ${config.scraperUrl}`);
-  console.log(`[ghostreader] Ollama: ${config.ollamaUrl} (default model: ${config.ollamaDefaultModel})`);
+  console.log(`[ghostreader] Ollama: ${config.ollamaUrl} (AI model: ${config.ollamaAiModel}, max ctx: ${config.ollamaMaxContext})`);
 
   serve(
     {

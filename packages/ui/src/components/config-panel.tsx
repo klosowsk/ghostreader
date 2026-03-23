@@ -11,10 +11,10 @@ export type Mode = "render" | "extract";
 export type Format = "markdown" | "html" | "json";
 
 const ENGINE_LABELS: Record<string, string> = {
-  standard: "Standard (fast, no AI)",
+  standard: "Standard (fast)",
+  clean: "Clean (articles)",
+  ai: "AI",
   auto: "Auto",
-  readerlm: "ReaderLM (AI)",
-  "qwen-small": "Qwen 2B (AI)",
 };
 
 function engineLabel(name: string): string {

@@ -64,7 +64,7 @@ server.tool(
     engine: z
       .string()
       .default('standard')
-      .describe('Processing engine: standard (default, fast, no AI), readerlm (AI), qwen-small (AI), auto'),
+      .describe('Processing engine: standard (default, fast), clean (article extraction), ai (Ollama AI model), auto'),
   },
   async ({ url, wait_after_load, engine }) => {
     try {

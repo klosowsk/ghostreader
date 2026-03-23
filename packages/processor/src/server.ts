@@ -233,7 +233,8 @@ app.get('/config', (c) => {
   return c.json({
     scraperUrl: config.scraperUrl,
     ollamaUrl: config.ollamaUrl,
-    ollamaDefaultModel: config.ollamaDefaultModel,
+    ollamaAiModel: config.ollamaAiModel,
+    ollamaMaxContext: config.ollamaMaxContext,
     port: config.port,
   });
 });

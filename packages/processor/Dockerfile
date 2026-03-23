@@ -29,7 +29,8 @@ COPY --from=ui-builder /ui/dist/ public/
 ENV PORT=3000
 ENV SCRAPER_URL=http://localhost:8080
 ENV OLLAMA_URL=http://localhost:11434
-ENV OLLAMA_DEFAULT_MODEL=reader-lm:1.5b
+ENV OLLAMA_AI_MODEL=milkey/reader-lm-v2:latest
+ENV OLLAMA_MAX_CONTEXT=65536
 
 EXPOSE 3000
 

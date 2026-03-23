@@ -1,15 +1,14 @@
 /**
- * Smart content extraction.
+ * Content extraction utilities.
  *
- * Uses JSDOM to parse the HTML, strips noisy elements (nav, header, footer,
- * aside, script, style, svg, noscript, iframe), then extracts the <main>
- * content if available, otherwise falls back to <body>.
- *
- * This approach preserves data-heavy content (tables, charts, indicators)
- * that Mozilla Readability would strip, while still removing navigation
- * chrome and boilerplate.
+ * Two strategies:
+ *   - extractContent(): Smart DOM extraction — strips nav/header/footer/aside,
+ *     extracts <main>. Preserves all data content. Default for 'standard' engine.
+ *   - extractArticle(): Mozilla Readability — aggressive article extraction.
+ *     Best for blog posts/articles. Strips data-heavy content. Used by 'clean' engine.
  */
 
+import { Readability } from '@mozilla/readability';
 import { JSDOM } from 'jsdom';
 
 export interface ExtractedContent {
@@ -31,28 +30,52 @@ function preClean(html: string): string {
 }
 
 /**
- * Extract content from rendered HTML using smart DOM extraction.
+ * Smart DOM extraction (default).
  *
- * 1. Pre-clean: strip script/style/svg/noscript/iframe via regex (fast)
- * 2. Parse with JSDOM
- * 3. Remove nav, header, footer, aside elements
- * 4. Extract <main> content if present, otherwise <body>
- * 5. Return cleaned HTML + page title
+ * Strips nav/header/footer/aside, extracts <main> if present.
+ * Preserves all data content (tables, charts, indicators).
  */
 export function extractContent(html: string, url?: string): ExtractedContent {
   const cleaned = preClean(html);
   const dom = new JSDOM(cleaned, { url });
   const doc = dom.window.document;
 
-  // Get title before stripping elements
   const title = doc.querySelector('title')?.textContent?.trim() || '';
 
-  // Remove noisy structural elements
   doc.querySelectorAll('nav, header, footer, aside').forEach((el) => el.remove());
 
-  // Extract <main> if it exists (most modern sites have one), otherwise <body>
   const main = doc.querySelector('main');
   const content = main ? main.innerHTML : doc.body?.innerHTML || cleaned;
 
   return { title, content };
+}
+
+/**
+ * Readability-based article extraction (clean engine).
+ *
+ * Uses Mozilla Readability to identify and extract the "main article"
+ * content. Aggressively strips navigation, sidebars, ads, and boilerplate.
+ * Best for articles and blog posts. Will strip data-heavy content on
+ * pages like financial dashboards.
+ *
+ * Falls back to smart DOM extraction if Readability can't identify content.
+ */
+export function extractArticle(html: string, url?: string): ExtractedContent {
+  const cleaned = preClean(html);
+  const dom = new JSDOM(cleaned, { url });
+
+  const title = dom.window.document.querySelector('title')?.textContent?.trim() || '';
+
+  const reader = new Readability(dom.window.document);
+  const result = reader.parse();
+
+  if (result) {
+    return {
+      title: result.title || title,
+      content: result.content,
+    };
+  }
+
+  // Readability couldn't extract — fall back to smart DOM extraction
+  return extractContent(html, url);
 }

@@ -1,9 +1,11 @@
 /**
  * Ollama client for AI-powered HTML-to-Markdown conversion.
  *
- * Supports dynamic model selection at request time.
- * Ollama is entirely optional — if unreachable, AI engines are unavailable
- * and the 'auto' engine falls back to 'turndown'.
+ * Uses a single configurable AI model (OLLAMA_AI_MODEL env var).
+ * Default: milkey/reader-lm-v2:latest (purpose-trained for HTML→markdown).
+ *
+ * Ollama is entirely optional — if unreachable, AI engine is unavailable
+ * and 'auto' falls back to 'standard'.
  */
 
 import { Ollama } from 'ollama';
@@ -18,124 +20,154 @@ function getClient(): Ollama {
   return client;
 }
 
-/**
- * Known engine-to-model mappings. Users can also pass a model name directly.
- */
-const ENGINE_MODELS: Record<string, string> = {
-  readerlm: 'reader-lm:1.5b',
-  'qwen-small': 'qwen3.5:2b',
-};
-
 // ---------------------------------------------------------------------------
-// Cached Ollama availability (avoids hitting Ollama on every request)
+// Cached Ollama availability (30s TTL)
 // ---------------------------------------------------------------------------
 
-let cachedModels: string[] | null = null;
+let cachedAvailable: boolean | null = null;
 let cacheExpiry = 0;
-const CACHE_TTL_MS = 30_000; // 30 seconds
+const CACHE_TTL_MS = 30_000;
 
-async function getCachedModels(): Promise<string[]> {
+async function checkAvailability(): Promise<boolean> {
   const now = Date.now();
-  if (cachedModels !== null && now < cacheExpiry) {
-    return cachedModels;
+  if (cachedAvailable !== null && now < cacheExpiry) {
+    return cachedAvailable;
   }
 
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 3000);
-
-    const response = await getClient().list();
+    await getClient().list();
     clearTimeout(timeout);
-
-    cachedModels = response.models.map((m) => m.name);
-    cacheExpiry = now + CACHE_TTL_MS;
-    return cachedModels;
+    cachedAvailable = true;
   } catch {
-    cachedModels = [];
-    cacheExpiry = now + CACHE_TTL_MS;
-    return [];
+    cachedAvailable = false;
   }
+  cacheExpiry = Date.now() + CACHE_TTL_MS;
+  return cachedAvailable;
 }
 
 /**
- * Resolve an engine name to an Ollama model name.
- */
-export function resolveModel(engine: string): string {
-  return ENGINE_MODELS[engine] || engine;
-}
-
-/**
- * Check if Ollama is reachable and has any models.
+ * Check if Ollama is reachable.
  */
 export async function isOllamaAvailable(): Promise<boolean> {
-  const models = await getCachedModels();
-  return models.length > 0;
+  return checkAvailability();
+}
+
+// ---------------------------------------------------------------------------
+// Model-family detection for optimal inference params
+// ---------------------------------------------------------------------------
+
+function isReaderLM(model: string): boolean {
+  return model.includes('reader-lm');
+}
+
+function isQwen(model: string): boolean {
+  return model.includes('qwen');
 }
 
 /**
- * Check if a specific engine/model is available.
+ * Estimate token count from HTML character count.
+ * HTML averages ~3 chars per token.
  */
-export async function isModelAvailable(engine: string): Promise<boolean> {
-  const model = resolveModel(engine);
-  const models = await getCachedModels();
-  return models.some((m) => m === model || m.startsWith(model.split(':')[0]));
+function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 3);
 }
 
 /**
- * Convert HTML to markdown using an Ollama model.
- *
- * Throws a descriptive error if Ollama is unreachable or the model is unavailable.
- *
- * For reader-lm: send raw HTML directly (it's trained for this).
- * For general models (qwen): use a system prompt.
+ * Calculate dynamic num_ctx based on input size.
+ * Leaves room for output (input * 1.5), clamped to [4096, OLLAMA_MAX_CONTEXT].
  */
-export async function htmlToMarkdownWithAI(
-  html: string,
-  engine: string,
-): Promise<string> {
-  const model = resolveModel(engine);
+function dynamicContext(inputTokens: number): number {
+  const needed = Math.ceil(inputTokens * 1.5);
+  return Math.max(4096, Math.min(needed, config.ollamaMaxContext));
+}
 
-  // Pre-flight check: is Ollama reachable?
-  const available = await isModelAvailable(engine);
+/**
+ * Convert HTML to markdown using the configured Ollama AI model.
+ *
+ * Automatically selects optimal inference params based on model family:
+ *   - reader-lm: temperature=0, no system prompt (trained for raw HTML input)
+ *   - qwen: temperature=0.7, top_p=0.8, top_k=20, system prompt, num_predict capped
+ *   - other: temperature=0, system prompt
+ */
+export async function htmlToMarkdownWithAI(html: string): Promise<string> {
+  const model = config.ollamaAiModel;
+
+  // Pre-flight: is Ollama reachable?
+  const available = await isOllamaAvailable();
   if (!available) {
-    const ollamaUp = await isOllamaAvailable();
-    if (!ollamaUp) {
-      throw new Error(
-        `AI engine '${engine}' requires Ollama at ${config.ollamaUrl} which is unreachable. ` +
-          `Set OLLAMA_URL to a running Ollama instance, or use engine 'turndown' (no AI required).`,
-      );
-    }
     throw new Error(
-      `Model '${model}' is not available in Ollama. ` +
-        `Run 'ollama pull ${model}' to download it, or use engine 'turndown'.`,
+      `AI engine requires Ollama at ${config.ollamaUrl} which is unreachable. ` +
+        `Use engine 'standard' (no AI required), or set OLLAMA_URL to a running Ollama instance.`,
     );
   }
 
-  const isReaderLM = model.startsWith('reader-lm');
+  const inputTokens = estimateTokens(html);
+  const numCtx = dynamicContext(inputTokens);
 
-  const messages = isReaderLM
-    ? [{ role: 'user' as const, content: html }]
-    : [
+  // Model-family specific settings
+  if (isReaderLM(model)) {
+    // reader-lm is trained on raw HTML, no system prompt needed, deterministic output
+    const response = await getClient().chat({
+      model,
+      messages: [{ role: 'user', content: html }],
+      options: {
+        temperature: 0,
+        num_ctx: numCtx,
+      },
+    });
+    return response.message.content.trim();
+  }
+
+  if (isQwen(model)) {
+    // Qwen non-thinking mode settings from Unsloth docs
+    const response = await getClient().chat({
+      model,
+      messages: [
         {
-          role: 'system' as const,
+          role: 'system',
           content:
-            'You are a precise HTML-to-Markdown converter. Extract the main content from the provided HTML and convert it to clean, well-formatted Markdown. Omit navigation, ads, footers, and boilerplate. Preserve all meaningful content, links, headings, lists, tables, and code blocks.',
+            'You are a precise HTML-to-Markdown converter. Convert the provided HTML to clean, well-formatted Markdown. Preserve all content, links, headings, lists, tables, and code blocks. Output only the markdown, no explanations.',
         },
-        { role: 'user' as const, content: html },
-      ];
+        { role: 'user', content: html },
+      ],
+      options: {
+        temperature: 0.7,
+        top_p: 0.8,
+        top_k: 20,
+        num_ctx: numCtx,
+        num_predict: Math.min(inputTokens, 8192),
+      },
+    });
+    return response.message.content.trim();
+  }
 
+  // Generic model: conservative settings
   const response = await getClient().chat({
     model,
-    messages,
-    options: { temperature: 0 },
+    messages: [
+      {
+        role: 'system',
+        content:
+          'You are a precise HTML-to-Markdown converter. Convert the provided HTML to clean, well-formatted Markdown. Preserve all content, links, headings, lists, tables, and code blocks. Output only the markdown, no explanations.',
+      },
+      { role: 'user', content: html },
+    ],
+    options: {
+      temperature: 0,
+      num_ctx: numCtx,
+    },
   });
-
   return response.message.content.trim();
 }
 
 /**
- * List available Ollama models. Returns model names or empty array if Ollama is unreachable.
+ * Get info about the configured AI model.
  */
-export async function listModels(): Promise<string[]> {
-  return getCachedModels();
+export function getAiModelInfo(): { model: string; available: Promise<boolean> } {
+  return {
+    model: config.ollamaAiModel,
+    available: isOllamaAvailable(),
+  };
 }

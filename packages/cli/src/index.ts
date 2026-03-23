@@ -152,7 +152,7 @@ Usage:
   ghostreader health                    Check processor health
 
 Options (render):
-  --engine <name>     Processing engine: standard (default, fast), readerlm (AI), qwen-small (AI), auto
+  --engine <name>     Processing engine: standard (default, fast), clean (articles), ai (Ollama), auto
   --format <type>     Output format: markdown (default), html, json
 
 Options (extract):

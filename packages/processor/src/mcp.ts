@@ -43,8 +43,8 @@ server.tool(
       .describe('Seconds to wait after page load for JS to execute (default: 2)'),
     engine: z
       .string()
-      .default('turndown')
-      .describe('Processing engine: turndown (default), readerlm, qwen-small, qwen-medium, qwen-large, auto'),
+      .default('standard')
+      .describe('Processing engine: standard (default, fast), clean (article extraction), ai (Ollama AI model), auto'),
   },
   async ({ url, wait_after_load, engine }) => {
     try {

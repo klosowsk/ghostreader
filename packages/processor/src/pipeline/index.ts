@@ -1,18 +1,18 @@
 /**
  * Content processing pipeline orchestrator.
  *
- * Routes HTML through the appropriate engine:
- *   - standard (default): Smart DOM extraction + Turndown — fast, no AI
- *   - readerlm: Ollama reader-lm model — best for complex HTML
- *   - qwen-small: Ollama qwen3.5:2b — general purpose
- *   - auto: heuristic selection based on content complexity
+ * Four engines:
+ *   - standard (default): Smart DOM extraction + Turndown — fast, no AI, preserves all data
+ *   - clean: Readability + Turndown — aggressive article extraction, strips boilerplate
+ *   - ai: Ollama AI model (configurable via OLLAMA_AI_MODEL, default reader-lm-v2)
+ *   - auto: standard if no Ollama, ai if available and page is complex
  */
 
-import { extractContent } from './readability.js';
+import { extractContent, extractArticle } from './readability.js';
 import { htmlToMarkdown } from './turndown.js';
-import { htmlToMarkdownWithAI, listModels, resolveModel, isOllamaAvailable } from './ollama.js';
+import { htmlToMarkdownWithAI, isOllamaAvailable, getAiModelInfo } from './ollama.js';
 
-export type Engine = 'standard' | 'readerlm' | 'qwen-small' | 'auto' | string;
+export type Engine = 'standard' | 'clean' | 'ai' | 'auto' | string;
 export type OutputFormat = 'markdown' | 'html' | 'json';
 
 export interface ProcessOptions {
@@ -31,7 +31,6 @@ export interface ProcessResult {
 
 /**
  * Detect if HTML is complex enough to warrant AI processing.
- * Simple heuristic: look for tables, math, deeply nested structures.
  */
 function isComplex(html: string): boolean {
   const tableCount = (html.match(/<table[\s>]/gi) || []).length;
@@ -43,41 +42,39 @@ function isComplex(html: string): boolean {
 
 /**
  * Process HTML through the content pipeline.
- *
- * The default engine (standard) uses smart DOM extraction (strip nav/header/footer,
- * extract <main>) then Turndown for markdown conversion.
- * AI engines send pre-cleaned HTML to the model directly.
  */
 export async function process(options: ProcessOptions): Promise<ProcessResult> {
   const { html, url, format = 'markdown' } = options;
   let engine = options.engine || 'standard';
 
-  // Backward compat: accept 'turndown' as alias for 'standard'
+  // Backward compat aliases
   if (engine === 'turndown') engine = 'standard';
+  if (engine === 'readerlm' || engine === 'qwen-small') engine = 'ai';
 
-  // Auto-select engine: use AI for complex pages, but only if Ollama is available
+  // Auto-select engine
   if (engine === 'auto') {
     if (isComplex(html) && (await isOllamaAvailable())) {
-      engine = 'readerlm';
+      engine = 'ai';
     } else {
       engine = 'standard';
     }
   }
 
-  // Smart DOM extraction (used by standard engine and html/json formats)
-  const extracted = extractContent(html, url);
+  // Choose extraction strategy based on engine
+  const useArticle = engine === 'clean';
+  const extracted = useArticle ? extractArticle(html, url) : extractContent(html, url);
 
-  // For HTML format, return the cleaned HTML
+  // HTML format: return cleaned HTML
   if (format === 'html') {
     return {
       content: extracted.content,
       format: 'html',
-      engine: 'standard',
+      engine,
       title: extracted.title,
     };
   }
 
-  // For JSON format, return extracted content as text
+  // JSON format: return metadata
   if (format === 'json') {
     const result = {
       title: extracted.title,
@@ -87,52 +84,54 @@ export async function process(options: ProcessOptions): Promise<ProcessResult> {
     return {
       content: JSON.stringify(result),
       format: 'json',
-      engine: 'standard',
+      engine,
       title: extracted.title,
     };
   }
 
-  // Markdown format with different engines
-  if (engine === 'standard') {
+  // Markdown with standard or clean engine
+  if (engine === 'standard' || engine === 'clean') {
     const markdown = htmlToMarkdown(extracted.content);
     return {
       content: markdown,
       format: 'markdown',
-      engine: 'standard',
+      engine,
       title: extracted.title,
     };
   }
 
-  // AI engines: send pre-cleaned HTML to the model
-  const markdown = await htmlToMarkdownWithAI(extracted.content, engine);
+  // AI engine: send pre-cleaned HTML to the configured Ollama model
+  if (engine === 'ai') {
+    const markdown = await htmlToMarkdownWithAI(extracted.content);
+    return {
+      content: markdown,
+      format: 'markdown',
+      engine: 'ai',
+      title: extracted.title,
+    };
+  }
+
+  // Unknown engine — fall back to standard
+  const markdown = htmlToMarkdown(extracted.content);
   return {
     content: markdown,
     format: 'markdown',
-    engine: resolveModel(engine),
+    engine: 'standard',
     title: extracted.title,
   };
 }
 
 /**
- * List all available engines (built-in + Ollama models).
+ * List available engines.
  */
 export async function getAvailableEngines(): Promise<Array<{ name: string; type: string; model?: string; available: boolean }>> {
-  const engines: Array<{ name: string; type: string; model?: string; available: boolean }> = [
+  const aiInfo = getAiModelInfo();
+  const aiAvailable = await aiInfo.available;
+
+  return [
     { name: 'standard', type: 'fast', available: true },
+    { name: 'clean', type: 'fast', available: true },
+    { name: 'ai', type: 'ai', model: aiInfo.model, available: aiAvailable },
     { name: 'auto', type: 'auto', available: true },
   ];
-
-  const models = await listModels();
-
-  const aiEngines = [
-    { name: 'readerlm', model: 'reader-lm:1.5b' },
-    { name: 'qwen-small', model: 'qwen3.5:2b' },
-  ];
-
-  for (const e of aiEngines) {
-    const available = models.some((m) => m === e.model || m.startsWith(e.model.split(':')[0]));
-    engines.push({ name: e.name, type: 'ai', model: e.model, available });
-  }
-
-  return engines;
 }
