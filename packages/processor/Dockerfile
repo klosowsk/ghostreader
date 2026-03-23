@@ -1,3 +1,11 @@
+FROM node:22-slim AS builder
+
+WORKDIR /app
+
+COPY package.json tsconfig.json ./
+COPY src/ src/
+RUN npm install && npm run build
+
 FROM node:22-slim
 
 WORKDIR /app
@@ -5,7 +13,7 @@ WORKDIR /app
 COPY package.json ./
 RUN npm install --production
 
-COPY dist/ dist/
+COPY --from=builder /app/dist/ dist/
 
 ENV PORT=3000
 ENV SCRAPER_URL=http://localhost:8080
