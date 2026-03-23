@@ -13,6 +13,7 @@ import {
   extractUrl,
   getEngines,
   getProfiles,
+  getHealth,
   type ExtractResponse,
 } from "@/lib/api";
 import {
@@ -47,11 +48,14 @@ function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState<number | null>(null);
 
+  // Health / status
+  const [scraperConnected, setScraperConnected] = useState<boolean | null>(null);
+
   // History
   const [historyOpen, setHistoryOpen] = useState(false);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
 
-  // Fetch engines and profiles on mount
+  // Fetch engines, profiles, and health on mount
   useEffect(() => {
     getEngines()
       .then((res) => {
@@ -67,6 +71,14 @@ function HomePage() {
       })
       .catch(() => {
         /* use defaults */
+      });
+
+    getHealth()
+      .then((res) => {
+        setScraperConnected(res.scraper?.healthy ?? false);
+      })
+      .catch(() => {
+        setScraperConnected(false);
       });
 
     setHistory(getHistory());
@@ -203,6 +215,35 @@ function HomePage() {
             engines={engines}
             profiles={profiles}
           />
+
+          {/* Status + tip — only on landing page */}
+          {!hasResults && (
+            <div className="mt-4 flex flex-col items-center gap-2 text-xs text-muted-foreground">
+              {scraperConnected !== null && (
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className={`size-1.5 rounded-full ${
+                      scraperConnected ? "bg-emerald-500" : "bg-red-500"
+                    }`}
+                  />
+                  {scraperConnected
+                    ? "Anti-detect browser connected"
+                    : "Scraper offline"}
+                </div>
+              )}
+              <p className="text-center max-w-md">
+                Also available as{" "}
+                <Link to="/docs#cli" className="underline hover:text-foreground">
+                  CLI
+                </Link>
+                {" and "}
+                <Link to="/docs#mcp-server" className="underline hover:text-foreground">
+                  MCP server
+                </Link>
+                {" for AI agents."}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Results */}
