@@ -1,6 +1,6 @@
 # GhostReader
 
-Self-hosted anti-detect browser rendering proxy with AI-powered content processing. Render any URL to clean markdown through a stealth [Camoufox](https://github.com/daijro/camoufox) browser, extract structured data with extraction profiles, and optionally restructure content with [Ollama](https://ollama.com) AI.
+Self-hosted anti-detect browser rendering proxy with AI-powered content processing. Render any URL to clean markdown through a stealth browser, extract structured data with extraction profiles, and optionally restructure content with [Ollama](https://ollama.com) AI.
 
 ## Quick Start
 
@@ -23,13 +23,13 @@ curl https://your-instance/render/https://example.com
                    │         GhostReader                │
   Web UI ──────┐   │                                    │
   CLI ─────────┤   │  Processor (TypeScript/Hono)       │
-  MCP agents ──┤──▶│  ├─ Defuddle content extraction    │
+  MCP agents ──┤──▶│  ├─ MD extraction                  │
   SearXNG ─────┤   │  ├─ Ollama AI formatting (opt.)    │
   curl/API ────┘   │  └─ Extraction profiles            │
                    │         │                          │
                    │         ▼                          │
-                   │  Scraper (Python/Camoufox)         │
-                   │  ├─ Anti-detect Firefox browser    │
+                   │  Scraper                           │
+                   │  ├─ Anti-detect browser            │
                    │  ├─ Persistent identity/cookies    │
                    │  └─ GeoIP fingerprint matching     │
                    └────────────────────────────────────┘
