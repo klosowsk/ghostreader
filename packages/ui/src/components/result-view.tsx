@@ -4,7 +4,7 @@ import { Copy, Check, Eye, Code } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
+
 
 interface ResultViewProps {
   content: string | null;
@@ -109,7 +109,7 @@ export function ResultView({
       </div>
 
       {/* Content */}
-      <ScrollArea className="max-h-[70vh] rounded-lg border border-border bg-card p-4">
+      <div className="rounded-lg border border-border bg-card p-4 overflow-auto">
         {viewMode === "rendered" && format === "markdown" ? (
           <div className="prose-ghost">
             <Markdown>{content}</Markdown>
@@ -119,7 +119,7 @@ export function ResultView({
             {content}
           </pre>
         )}
-      </ScrollArea>
+      </div>
     </div>
   );
 }

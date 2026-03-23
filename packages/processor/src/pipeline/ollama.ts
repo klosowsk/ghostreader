@@ -67,6 +67,15 @@ function isQwen(model: string): boolean {
 }
 
 /**
+ * Strip markdown code fence wrapper that some models add around output.
+ * e.g. ```markdown\n...\n``` → ...
+ */
+function stripCodeFence(text: string): string {
+  const match = text.match(/^```(?:markdown|md|html)?\s*\n([\s\S]*?)\n?```\s*$/);
+  return match ? match[1].trim() : text;
+}
+
+/**
  * Estimate token count from HTML character count.
  * HTML averages ~3 chars per token.
  */
@@ -117,7 +126,7 @@ export async function htmlToMarkdownWithAI(html: string): Promise<string> {
         num_ctx: numCtx,
       },
     });
-    return response.message.content.trim();
+    return stripCodeFence(response.message.content.trim());
   }
 
   if (isQwen(model)) {
@@ -140,7 +149,7 @@ export async function htmlToMarkdownWithAI(html: string): Promise<string> {
         num_predict: Math.min(inputTokens, 8192),
       },
     });
-    return response.message.content.trim();
+    return stripCodeFence(response.message.content.trim());
   }
 
   // Generic model: conservative settings
@@ -159,7 +168,7 @@ export async function htmlToMarkdownWithAI(html: string): Promise<string> {
       num_ctx: numCtx,
     },
   });
-  return response.message.content.trim();
+  return stripCodeFence(response.message.content.trim());
 }
 
 /**

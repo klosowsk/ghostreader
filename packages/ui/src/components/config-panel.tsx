@@ -59,22 +59,24 @@ export function ConfigPanel({
           </TabsList>
         </Tabs>
 
-        {/* Engine select */}
-        <Select
-          value={config.engine}
-          onValueChange={(v) => update({ engine: v as string })}
-        >
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Engine" />
-          </SelectTrigger>
-          <SelectContent>
-            {engines.map((e) => (
-              <SelectItem key={e} value={e}>
-                {engineLabel(e)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {/* Engine select - only in render mode */}
+        {config.mode === "render" && (
+          <Select
+            value={config.engine}
+            onValueChange={(v) => update({ engine: v as string })}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Engine" />
+            </SelectTrigger>
+            <SelectContent>
+              {engines.map((e) => (
+                <SelectItem key={e} value={e}>
+                  {engineLabel(e)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
 
         {/* Format select - only in render mode */}
         {config.mode === "render" && (
