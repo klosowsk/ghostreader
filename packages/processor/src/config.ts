@@ -17,7 +17,7 @@ export function loadConfig(): Config {
     scraperUrl: (process.env.SCRAPER_URL || 'http://localhost:8080').replace(/\/$/, ''),
     ollamaUrl: (process.env.OLLAMA_URL || 'http://localhost:11434').replace(/\/$/, ''),
     ollamaAiModel: process.env.OLLAMA_AI_MODEL || 'milkey/reader-lm-v2:latest',
-    ollamaMaxContext: parseInt(process.env.OLLAMA_MAX_CONTEXT || '65536', 10),
+    ollamaMaxContext: parseInt(process.env.OLLAMA_MAX_CONTEXT || '131072', 10),
     logLevel: process.env.LOG_LEVEL || 'info',
   };
 }

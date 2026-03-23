@@ -11,6 +11,7 @@
 import { extractContent, extractArticle } from './readability.js';
 import { htmlToMarkdown } from './turndown.js';
 import { htmlToMarkdownWithAI, isOllamaAvailable, getAiModelInfo } from './ollama.js';
+import { config } from '../config.js';
 
 export type Engine = 'standard' | 'clean' | 'ai' | 'auto' | string;
 export type OutputFormat = 'markdown' | 'html' | 'json';
@@ -102,9 +103,22 @@ export async function process(options: ProcessOptions): Promise<ProcessResult> {
 
   // AI engine: send pre-cleaned HTML to the configured Ollama model
   if (engine === 'ai') {
-    const markdown = await htmlToMarkdownWithAI(extracted.content);
+    const maxChars = config.ollamaMaxContext * 3; // ~3 chars per token
+    const inputChars = extracted.content.length;
+    let aiInput = extracted.content;
+    let warning: string | undefined;
+
+    if (inputChars > maxChars) {
+      // Truncate to fit context, keep beginning (most important content)
+      aiInput = extracted.content.slice(0, maxChars);
+      warning = `Content truncated from ${Math.round(inputChars / 1024)}KB to ${Math.round(maxChars / 1024)}KB to fit AI context window (${config.ollamaMaxContext} tokens). Some content at the end of the page may be missing.`;
+      console.warn(`[ghostreader] ${warning}`);
+    }
+
+    const markdown = await htmlToMarkdownWithAI(aiInput);
+    const output = warning ? `${markdown}\n\n---\n_${warning}_` : markdown;
     return {
-      content: markdown,
+      content: output,
       format: 'markdown',
       engine: 'ai',
       title: extracted.title,
