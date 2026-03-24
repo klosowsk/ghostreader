@@ -11,8 +11,8 @@ services:
 
   processor:
     build:
-      context: packages/processor
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: packages/processor/Dockerfile
     ports:
       - "3000:3000"
     environment:
