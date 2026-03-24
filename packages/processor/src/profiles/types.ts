@@ -5,7 +5,7 @@
 export interface ExtractResult {
   url: string;
   title: string;
-  content: string;
+  content: string | Record<string, string>;
   thumbnail?: string;
 }
 
